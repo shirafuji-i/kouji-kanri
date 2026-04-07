@@ -994,6 +994,35 @@ function updateFileStatus(state, name) {
 }
 
 // ===========================
+// SESSION TIMEOUT
+// ===========================
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2時間
+
+function updateLastActivity() {
+  localStorage.setItem('lastActivity', Date.now());
+}
+
+function isSessionExpired() {
+  const last = parseInt(localStorage.getItem('lastActivity') || '0');
+  if (!last) return false;
+  return (Date.now() - last) > SESSION_TIMEOUT_MS;
+}
+
+// ユーザー操作があるたびに最終アクティビティを更新
+['click','keydown','touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => { if (currentUser) updateLastActivity(); }, { passive: true })
+);
+
+// 1分ごとにタイムアウトチェック
+setInterval(() => {
+  if (currentUser && isSessionExpired()) {
+    logout();
+    const el = document.getElementById('login-error');
+    if (el) el.textContent = '2時間操作がなかったため、自動的にログアウトしました。';
+  }
+}, 60 * 1000);
+
+// ===========================
 // LOGIN / USER SESSION
 // ===========================
 function showLoginOverlay() {
@@ -1032,6 +1061,7 @@ function doLogin() {
   const user  = users.find(u => u.email.toLowerCase() === email);
   if (!user) { errEl.textContent = '登録されていないメールアドレスです'; return; }
   setCurrentUser(user);
+  updateLastActivity();
   hideLoginOverlay();
   renderAll();
 }
@@ -1068,6 +1098,7 @@ function setCurrentUser(user) {
 function logout() {
   currentUser = null;
   localStorage.removeItem('currentUserId');
+  localStorage.removeItem('lastActivity');
   document.getElementById('user-badge').style.display = 'none';
   document.getElementById('tab-btn-users').style.display = 'none';
   document.getElementById('inp-login-email').value = '';
@@ -1080,10 +1111,16 @@ function logout() {
 function restoreSession() {
   const savedId = localStorage.getItem('currentUserId');
   if (!savedId) return false;
+  if (isSessionExpired()) {
+    localStorage.removeItem('currentUserId');
+    localStorage.removeItem('lastActivity');
+    return false;
+  }
   const users = getSysUsers();
   const user  = users.find(u => u.id === savedId);
   if (!user) return false;
   setCurrentUser(user);
+  updateLastActivity();
   return true;
 }
 

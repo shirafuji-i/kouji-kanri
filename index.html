@@ -509,7 +509,7 @@ tr.project-row:hover .row-btns { display: flex; }
 </div>
 
 <!-- LOGIN OVERLAY -->
-<div class="login-overlay" id="login-overlay">
+<div class="login-overlay" id="login-overlay" style="display:none;">
   <div class="login-box">
     <h2>月間工程管理ツール</h2>
     <p class="login-sub">ご利用にはログインが必要です</p>
@@ -2082,7 +2082,11 @@ async function init() {
   renderAll();
   // セッション復元（前回ログイン済みならそのまま）
   const restored = restoreSession();
-  if (!restored) showLoginOverlay();
+  if (restored) {
+    hideLoginOverlay();
+  } else {
+    showLoginOverlay();
+  }
 }
 init();
 

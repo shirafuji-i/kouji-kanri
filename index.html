@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月間工程管理ツール</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+:root {
+  --confirmed: #FFD700;
+  --unconfirmed: #90EE90;
+  --header-bg: #1e3a5f;
+  --accent: #2563EB;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Meiryo','Yu Gothic','MS Gothic',sans-serif; font-size: 14px; background: #f0f2f5; color: #222; }
+
+/* HEADER */
+.app-header {
+  background: var(--header-bg); color: white; padding: 10px 20px;
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.app-title { font-size: 17px; font-weight: bold; white-space: nowrap; }
+.month-nav { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.month-nav button {
+  background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+  color: white; padding: 4px 12px; cursor: pointer; border-radius: 4px; font-size: 14px;
+}
+.month-nav button:hover { background: rgba(255,255,255,0.35); }
+#current-month-label { font-size: 16px; font-weight: bold; min-width: 110px; text-align: center; }
+.btn-print { background: #e65100; border: none; color: white; padding: 6px 16px; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
+.btn-print:hover { background: #bf360c; }
+.btn-file { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; }
+.btn-file:hover { background: rgba(255,255,255,0.35); }
+.btn-cloud { background: rgba(37,99,235,0.5); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
+.btn-cloud:hover { background: rgba(37,99,235,0.75); }
+.file-status { font-size: 12px; padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; gap: 5px; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.file-status.connected    { background: rgba(46,125,50,0.35);  color: #c8f5cc; }
+.file-status.syncing      { background: rgba(25,118,210,0.35); color: #bbdefb; }
+.file-status.disconnected { background: rgba(198,40,40,0.3);   color: #ffcdd2; cursor: help; }
+.setup-box { background: #f0f6ff; border: 1px solid #b3c8f0; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; font-size: 13px; }
+.setup-box h4 { margin-bottom: 8px; color: #1e3a5f; font-size: 13px; }
+.setup-box ol { padding-left: 18px; line-height: 2; }
+.setup-box code { background: #dde8f8; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.url-input-wrap { display: flex; gap: 8px; align-items: center; }
+.url-input-wrap input { flex: 1; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; }
+.cloud-status-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; }
+#cloud-test-result { font-size: 12px; }
+
+/* TABS */
+.tabs { display: flex; background: white; border-bottom: 2px solid var(--accent); padding: 0 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 14px; color: #555; border-bottom: 3px solid transparent; margin-bottom: -2px; font-family: inherit; }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
+.tab-btn:hover:not(.active) { color: #333; background: #f5f5f5; }
+
+/* CONTENT */
+.tab-content { display: none; padding: 16px 20px; }
+.tab-content.active { display: block; }
+
+/* BUTTONS */
+.btn { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: inherit; }
+.btn-primary   { background: var(--accent); color: white; }
+.btn-danger    { background: #d32f2f; color: white; }
+.btn-secondary { background: #757575; color: white; }
+.btn:hover { opacity: 0.85; }
+.btn-sm { padding: 3px 8px; font-size: 11px; }
+
+/* TOOLBAR */
+.toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.filter-wrap { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.filter-wrap select { padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; background: white; }
+.legend { display: flex; gap: 14px; margin-left: auto; align-items: center; font-size: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-box { width: 18px; height: 12px; border: 1px solid #999; border-radius: 2px; }
+
+/* SCHEDULE TABLE */
+.schedule-wrapper { overflow-x: auto; }
+.schedule-table { border-collapse: collapse; font-size: 12px; min-width: 100%; background: white; }
+.schedule-table th, .schedule-table td { border: 1px solid #aaa; padding: 3px 4px; text-align: center; vertical-align: middle; white-space: nowrap; }
+.schedule-table thead th { background: #c8d4ea; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+
+/* Sticky columns: sl-no=55, sl-client=90, sl-name=130, sl-kouji=80 → cumulative: 0,55,145,275 */
+/* After days: col-est=46, col-act=46, col-margin=52, col-remarks=80 */
+.sticky-left { position: sticky; z-index: 5; background: white; }
+.sl-no     { left: 0;     width: 55px;  min-width: 55px; }
+.sl-client { left: 55px;  min-width: 90px; max-width: 90px; }
+.sl-name   { left: 145px; min-width: 130px; max-width: 150px; }
+.sl-kouji  { left: 275px; min-width: 80px; max-width: 100px; }
+thead .sticky-left { z-index: 11; }
+
+.col-day { width: 28px; min-width: 28px; cursor: pointer; font-size: 11px; }
+.col-day:hover { outline: 2px solid var(--accent); outline-offset: -1px; }
+.col-total   { width: 42px; background: #eef2fa !important; font-weight: bold; font-size: 11px; }
+.col-est     { width: 42px; background: #fff8e1 !important; font-size: 11px; }
+.col-act     { width: 42px; background: #e8f5e9 !important; font-size: 11px; }
+.col-margin  { width: 50px; background: #fce4ec !important; font-size: 11px; }
+.col-remarks { min-width: 100px; max-width: 160px; text-align: left !important; font-size: 11px; cursor: pointer; }
+.col-remarks:hover { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.day-cell-content { font-size: 10px; line-height: 1.4; }
+.cell-workers { display: block; }
+.cell-note { display: block; font-size: 9px; color: #444; margin-top: 1px; white-space: normal; word-break: break-all; }
+.th-sat { color: #1565C0 !important; }
+.th-sun { color: #c62828 !important; }
+.td-sat { background-color: #e8f0fe !important; }
+.td-sun { background-color: #fce8e8 !important; }
+.confirmed   { background-color: var(--confirmed)   !important; }
+.unconfirmed { background-color: var(--unconfirmed) !important; }
+tr.project-row:hover td:not(.confirmed):not(.unconfirmed) { background: #f5f7ff; }
+
+/* 状態列（完工・翌月持越） */
+.col-status { min-width: 78px; text-align: left !important; vertical-align: middle !important; font-size: 11px; padding: 2px 4px !important; }
+.status-check { display: block; cursor: pointer; white-space: nowrap; padding: 1px 0; user-select: none; }
+.status-check input { cursor: pointer; margin-right: 3px; }
+
+/* 完工行：グレーアウト */
+tr.project-row.proj-completed td:not(.col-status) {
+  background-color: #d4d4d4 !important;
+  color: #888 !important;
+}
+tr.project-row.proj-completed .confirmed,
+tr.project-row.proj-completed .unconfirmed { background-color: #b8b8b8 !important; }
+tr.project-row.proj-completed .avail-names { color: #888; }
+
+/* 未割当作業員行 */
+tr.avail-row td { border-top: 2px solid #6a8cc0; }
+.avail-label {
+  background: #dde8f8 !important; font-weight: bold;
+  font-size: 11px; color: #1e3a5f; text-align: center !important;
+  width: 355px; /* span 4 sticky cols */
+}
+.avail-cell { background: #f0f6ff !important; }
+.avail-names { color: #1565c0; writing-mode: vertical-rl; text-orientation: upright; display: inline-block; }
+
+.group-header-row td { background: #dde4f0 !important; font-weight: bold; font-size: 12px; padding: 5px 10px; border-top: 2px solid #8a9cc0; text-align: left !important; position: static !important; color: #1e3a5f; }
+
+/* Drag */
+.drag-handle { display: inline; cursor: grab; font-size: 13px; color: #ccc; padding: 0 2px; }
+.drag-handle:hover { color: #555; }
+.drag-handle:active { cursor: grabbing; }
+tr.project-row.dragging { opacity: 0.35; }
+tr.project-row.drag-over { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* 行ボタン: 通常は非表示、ホバーで表示 */
+.row-btns { display: none; gap: 2px; justify-content: center; margin-top: 2px; }
+tr.project-row:hover .row-btns { display: flex; }
+
+/* SECTION CARD */
+.section-card { background: white; border-radius: 6px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 16px; }
+.section-card h3 { font-size: 15px; margin-bottom: 12px; color: var(--header-bg); }
+
+/* DATA TABLE */
+.data-table { border-collapse: collapse; width: 100%; }
+.data-table th, .data-table td { border: 1px solid #ddd; padding: 7px 12px; font-size: 13px; }
+.data-table th { background: #c8d4ea; font-weight: bold; }
+.data-table tr:nth-child(even) td { background: #f9f9f9; }
+.data-table tr:hover td { background: #eef2fa; }
+.col-actions { text-align: center !important; width: 110px; }
+
+/* HOURS TABLE */
+.hours-table { border-collapse: collapse; width: 100%; }
+.hours-table th, .hours-table td { border: 1px solid #ddd; padding: 7px 12px; text-align: center; font-size: 13px; }
+.hours-table th { background: #c8d4ea; font-weight: bold; }
+.hours-table tr:nth-child(even) td { background: #f9f9f9; }
+.hours-table .minus { color: #c62828; font-weight: bold; }
+.hours-table .plus  { color: #2e7d32; }
+.hours-editable { width: 70px; border: 1px solid #ccc; padding: 3px 6px; text-align: right; font-size: 13px; border-radius: 3px; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 8px; padding: 24px; min-width: 380px; max-width: 92vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+.modal h3 { margin-bottom: 16px; color: var(--header-bg); font-size: 15px; }
+.form-group { margin-bottom: 13px; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #555; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; }
+.form-group textarea { resize: vertical; }
+.form-row { display: flex; gap: 10px; }
+.form-row .form-group { flex: 1; }
+
+.status-radios { display: flex; gap: 10px; flex-wrap: wrap; }
+.status-radio { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 13px; user-select: none; }
+.status-radio.selected-confirmed   { border-color: #b8860b; background: #fff9e0; }
+.status-radio.selected-unconfirmed { border-color: #4a8; background: #f0fff0; }
+.status-radio.selected-none        { border-color: #999; background: #f5f5f5; }
+.status-swatch { width: 16px; height: 12px; border: 1px solid #999; border-radius: 2px; display: inline-block; }
+
+.worker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; border-radius: 4px; }
+.worker-check { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+.worker-check:hover { background: #eef2fa; }
+
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+/* MISC */
+.text-left { text-align: left !important; }
+.text-sm   { font-size: 11px; color: #444; }
+.overflow-ellipsis { overflow: hidden; text-overflow: ellipsis; }
+.empty-state { text-align: center; color: #aaa; padding: 40px 20px; font-size: 15px; }
+
+/* PRINT */
+@media print {
+  @page { size: A4 landscape; margin: 8mm 10mm; }
+  body { background: white; font-size: 9pt; }
+  .app-header, .tabs, .toolbar, .modal-overlay { display: none !important; }
+  #tab-workers, #tab-hours { display: none !important; }
+  #tab-schedule { display: block !important; padding: 0; }
+  .print-header { display: block !important; }
+  .schedule-wrapper { overflow: visible; }
+  .schedule-table { font-size: 7pt; width: 100%; }
+  .schedule-table th, .schedule-table td { padding: 1px 1px; }
+  .sl-no     { width: 26px; min-width: 26px; }
+  .sl-client { min-width: 48px; max-width: 56px; }
+  .sl-name   { min-width: 58px; max-width: 72px; }
+  .sl-kouji  { min-width: 38px; max-width: 48px; }
+  .col-day   { width: 22px; min-width: 22px; }
+  .col-total, .col-est, .col-act, .col-margin { width: 22px; }
+  .col-remarks { min-width: 55px; max-width: 70px; }
+  .sticky-left { position: static; }
+  .confirmed   { background-color: var(--confirmed)   !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .unconfirmed { background-color: var(--unconfirmed) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .td-sat { background-color: #e8f0fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .td-sun { background-color: #fce8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .group-header-row:not(.first-group) { break-before: page; }
+  .drag-handle { display: none; }
+  .no-print { display: none !important; }
+}
+.print-header { display: none; text-align: center; margin-bottom: 6pt; font-size: 14pt; font-weight: bold; }
+
+/* LOGIN */
+.login-overlay {
+  position: fixed; inset: 0; background: rgba(15,30,60,0.85);
+  z-index: 900; display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: white; border-radius: 10px; padding: 36px 40px;
+  min-width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); text-align: center;
+}
+.login-box h2 { color: var(--header-bg); margin-bottom: 6px; font-size: 18px; }
+.login-box .login-sub { color: #666; font-size: 13px; margin-bottom: 24px; }
+.login-box .form-group { text-align: left; margin-bottom: 16px; }
+.login-box input { width: 100%; padding: 9px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
+.login-error { color: #c62828; font-size: 12px; margin-top: 8px; min-height: 18px; }
+.btn-login { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 4px; font-family: inherit; }
+.btn-login:hover { background: #1d4ed8; }
+.login-setup-link { font-size: 12px; color: #888; margin-top: 16px; cursor: pointer; text-decoration: underline; }
+
+/* USER BADGE */
+.user-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.15); border-radius: 20px;
+  padding: 4px 12px 4px 8px; font-size: 13px; color: white; white-space: nowrap;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: white; font-size: 12px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.btn-logout {
+  background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+  color: white; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; font-family: inherit;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.35); }
+
+/* USER MANAGEMENT TAB */
+.admin-badge { background: #e65100; color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
+
+/* CSV */
+.btn-csv-export { background: #2e7d32; color: white; }
+.btn-csv-import { background: #1565c0; color: white; }
+.csv-hint { font-size: 11px; color: #888; margin-top: 5px; }
+.csv-section { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <span class="app-title">月間工程管理ツール</span>
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)">◀ 前月</button>
+    <span id="current-month-label"></span>
+    <button onclick="changeMonth(1)">次月 ▶</button>
+  </div>
+  <button class="btn-print" onclick="printSchedule()">🖨️ 印刷 (A4)</button>
+  <div id="file-status" class="file-status disconnected" title="未接続">⚠ 未接続</div>
+  <button class="btn-cloud" onclick="openCloudSettings()" title="クラウド同期設定（PC・携帯共有）">☁ クラウド設定</button>
+  <button class="btn-file" onclick="openDataFile()" title="ローカルJSONファイルを開く（PC専用）">📂 PC用</button>
+  <button class="btn-file" onclick="newDataFile()" title="新しいJSONファイルを作成（PC専用）">＋ 新規</button>
+  <div id="user-badge" class="user-badge" style="display:none;">
+    <div class="user-avatar" id="user-avatar"></div>
+    <span id="user-name-label"></span>
+    <button class="btn-logout" onclick="logout()">ログアウト</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('schedule')">📅 工程管理</button>
+  <button class="tab-btn" onclick="switchTab('workers')">👷 作業者管理</button>
+  <button class="tab-btn" onclick="switchTab('clients')">🏢 客先管理</button>
+  <button class="tab-btn" onclick="switchTab('hours')">📊 工数管理</button>
+  <button class="tab-btn" id="tab-btn-users" onclick="switchTab('users')" style="display:none;">👤 ユーザー管理</button>
+</div>
+
+<!-- TAB: 工程管理 -->
+<div class="tab-content active" id="tab-schedule">
+  <div class="print-header" id="print-title"></div>
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openProjectModal()">＋ 工事追加</button>
+    <button class="btn btn-csv-export btn" onclick="exportProjectsCsv()">↓ CSV出力</button>
+    <button class="btn" style="background:#2e7d32;color:white;font-weight:bold;" onclick="openDailyReportModal()">📋 日次予定表 Excel出力</button>
+    <label class="btn btn-csv-import btn" style="cursor:pointer;">↑ CSV取込
+      <input type="file" accept=".csv" style="display:none;" onchange="importProjectsCsv(event)">
+    </label>
+    <div class="filter-wrap">
+      <label style="color:#555;">客先：</label>
+      <select id="client-filter" onchange="applyClientFilter()">
+        <option value="">全表示（客先グループ）</option>
+      </select>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background:var(--confirmed)"></div>確定</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--unconfirmed)"></div>未確定</div>
+      <div class="legend-item"><div class="legend-box" style="background:white"></div>予定なし</div>
+    </div>
+  </div>
+  <div class="schedule-wrapper">
+    <table class="schedule-table" id="schedule-table">
+      <thead id="schedule-thead"></thead>
+      <tbody id="schedule-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: 作業者管理 -->
+<div class="tab-content" id="tab-workers">
+  <div class="section-card">
+    <h3>作業者一覧</h3>
+    <div class="csv-section">
+      <button class="btn btn-primary" onclick="openWorkerModal()">＋ 作業者追加</button>
+      <button class="btn btn-csv-export btn" onclick="exportWorkersCsv()">↓ CSV出力</button>
+      <label class="btn btn-csv-import btn" style="cursor:pointer;">↑ CSV取込
+        <input type="file" accept=".csv" style="display:none;" onchange="importWorkersCsv(event)">
+      </label>
+      <span class="csv-hint">CSVフォーマット：氏名, 所属会社, 区分・役職, 車番</span>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">No.</th>
+          <th>氏名</th>
+          <th>所属会社</th>
+          <th>区分・役職</th>
+          <th>車番</th>
+          <th class="col-actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="worker-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: 客先管理 -->
+<div class="tab-content" id="tab-clients">
+  <div class="section-card">
+    <h3>客先・プラント一覧</h3>
+    <div class="csv-section">
+      <button class="btn btn-primary" onclick="openClientMasterModal()">＋ 客先追加</button>
+      <button class="btn btn-csv-export btn" onclick="exportClientsCsv()">↓ CSV出力</button>
+      <label class="btn btn-csv-import btn" style="cursor:pointer;">↑ CSV取込
+        <input type="file" accept=".csv" style="display:none;" onchange="importClientsCsv(event)">
+      </label>
+      <span class="csv-hint">CSVフォーマット：客先会社名, プラント・場所</span>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">No.</th>
+          <th>客先会社名</th>
+          <th>プラント（場所）</th>
+          <th class="col-actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="clientmaster-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: ユーザー管理（管理者のみ） -->
+<div class="tab-content" id="tab-users">
+  <div class="section-card">
+    <h3>ユーザー管理 <span class="admin-badge">管理者専用</span></h3>
+    <div class="toolbar" style="margin-bottom:10px;">
+      <button class="btn btn-primary" onclick="openUserModal()">＋ ユーザー追加</button>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">No.</th>
+          <th>氏名</th>
+          <th>メールアドレス</th>
+          <th>権限</th>
+          <th class="col-actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="sysuser-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: 工数管理 -->
+<div class="tab-content" id="tab-hours">
+  <div class="section-card">
+    <h3 id="hours-title">工数管理</h3>
+    <table class="hours-table">
+      <thead>
+        <tr>
+          <th style="width:36px;">No.</th>
+          <th class="text-left">客先会社</th>
+          <th class="text-left">工事名</th>
+          <th style="width:105px;">見積工数<br><small>(人工・手入力)</small></th>
+          <th style="width:90px;">実工数<br><small>(人工・集計)</small></th>
+          <th style="width:80px;">粗利率<br><small>(%)</small></th>
+          <th style="width:70px;">差引</th>
+        </tr>
+      </thead>
+      <tbody id="hours-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL: 工事編集 -->
+<div class="modal-overlay" id="modal-project">
+  <div class="modal">
+    <h3 id="modal-project-title">工事を追加</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>客先会社</label>
+        <select id="inp-proj-client" onchange="onClientSelectChange()">
+          <option value="">-- 選択してください --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>プラント（場所）</label>
+        <select id="inp-proj-plant">
+          <option value="">-- 選択してください --</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>工事名 *</label>
+        <input type="text" id="inp-proj-name" placeholder="例: 電気設備工事">
+      </div>
+      <div class="form-group" style="max-width:150px;">
+        <label>見積番号</label>
+        <input type="text" id="inp-proj-quoteno" placeholder="例: MC-0804-001">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>工種・作業概要</label>
+        <input type="text" id="inp-proj-kouji" placeholder="例: 電気・配線">
+      </div>
+      <div class="form-group" style="max-width:130px;">
+        <label>見積工数（人工）</label>
+        <input type="number" id="inp-proj-hours" placeholder="0" min="0" step="0.5">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>登録者</label>
+      <input type="text" id="inp-proj-registered-by" readonly
+             style="background:#f5f5f5;color:#555;cursor:default;" placeholder="（ログインユーザー名）">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-project')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveProject()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ユーザー追加 -->
+<div class="modal-overlay" id="modal-sysuser">
+  <div class="modal">
+    <h3 id="modal-sysuser-title">ユーザーを追加</h3>
+    <div class="form-group">
+      <label>氏名 *</label>
+      <input type="text" id="inp-su-name" placeholder="例: 山田 太郎">
+    </div>
+    <div class="form-group">
+      <label>メールアドレス *</label>
+      <input type="email" id="inp-su-email" placeholder="例: yamada@example.com">
+    </div>
+    <div class="form-group">
+      <label>権限</label>
+      <select id="inp-su-role">
+        <option value="user">一般</option>
+        <option value="admin">管理者</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-sysuser')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveSysUser()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <h2>月間工程管理ツール</h2>
+    <p class="login-sub">ご利用にはログインが必要です</p>
+    <div id="login-form">
+      <div class="form-group" style="text-align:left;">
+        <label style="font-size:12px;font-weight:bold;color:#555;">メールアドレス</label>
+        <input type="email" id="inp-login-email" placeholder="登録済みのメールアドレス"
+               onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <p class="login-error" id="login-error"></p>
+      <button class="btn-login" onclick="doLogin()">ログイン</button>
+      <p class="login-setup-link" id="login-setup-link" onclick="showInitSetup()" style="display:none;">
+        ▶ 初回セットアップ（管理者アカウントを作成）
+      </p>
+    </div>
+    <div id="init-setup-form" style="display:none;">
+      <p style="font-size:12px;color:#888;margin-bottom:14px;">ユーザーが登録されていません。最初の管理者を登録してください。</p>
+      <div class="form-group" style="text-align:left;">
+        <label style="font-size:12px;font-weight:bold;color:#555;">氏名 *</label>
+        <input type="text" id="inp-init-name" placeholder="例: 山田 太郎">
+      </div>
+      <div class="form-group" style="text-align:left;">
+        <label style="font-size:12px;font-weight:bold;color:#555;">メールアドレス *</label>
+        <input type="email" id="inp-init-email" placeholder="例: yamada@example.com">
+      </div>
+      <p class="login-error" id="init-error"></p>
+      <button class="btn-login" onclick="doInitSetup()">管理者として登録してログイン</button>
+      <p class="login-setup-link" onclick="showLoginForm()">▶ ログイン画面に戻る</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: セル編集 -->
+<div class="modal-overlay" id="modal-cell">
+  <div class="modal">
+    <h3 id="modal-cell-title"></h3>
+    <div class="form-group">
+      <label>状態</label>
+      <div class="status-radios">
+        <label class="status-radio" id="sr-confirmed" onclick="selectStatus('confirmed')">
+          <span class="status-swatch" style="background:var(--confirmed)"></span>確定（黄）
+        </label>
+        <label class="status-radio" id="sr-unconfirmed" onclick="selectStatus('unconfirmed')">
+          <span class="status-swatch" style="background:var(--unconfirmed)"></span>未確定（黄緑）
+        </label>
+        <label class="status-radio" id="sr-none" onclick="selectStatus('none')">
+          <span class="status-swatch" style="background:white"></span>なし
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>作業者（複数選択可）</label>
+      <div class="worker-grid" id="modal-worker-grid"></div>
+    </div>
+    <div class="form-group">
+      <label>作業内容</label>
+      <textarea id="inp-cell-work" rows="2" placeholder="当日の作業内容を記入"></textarea>
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <textarea id="inp-cell-memo" rows="2" placeholder="連絡事項など"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cell')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveCell()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 日次予定表出力 -->
+<div class="modal-overlay" id="modal-daily-report">
+  <div class="modal" style="min-width:360px;">
+    <h3>📋 日次予定表 Excel出力</h3>
+    <div class="form-group">
+      <label>出力日付</label>
+      <input type="date" id="inp-daily-date" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;font-family:inherit;">
+    </div>
+    <div class="form-group">
+      <label>注意書き（タイトル下に表示）</label>
+      <input type="text" id="inp-daily-notice" placeholder="例：入構前に車両始業前点検チェックを徹底" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;font-family:inherit;">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-daily-report')">キャンセル</button>
+      <button class="btn btn-primary" onclick="exportDailyReport()">Excel出力</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 備考編集 -->
+<div class="modal-overlay" id="modal-remarks">
+  <div class="modal" style="min-width:320px;">
+    <h3 id="modal-remarks-title">備考</h3>
+    <div class="form-group">
+      <textarea id="inp-remarks" rows="5" placeholder="備考を入力"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-remarks')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveRemarks()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 作業者編集 -->
+<div class="modal-overlay" id="modal-worker">
+  <div class="modal">
+    <h3 id="modal-worker-title">作業者を追加</h3>
+    <div class="form-group">
+      <label>氏名 *</label>
+      <input type="text" id="inp-worker-name" placeholder="例: 田中 太郎">
+    </div>
+    <div class="form-group">
+      <label>所属会社</label>
+      <input type="text" id="inp-worker-company" placeholder="例: ○○電気株式会社">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>区分・役職</label>
+        <input type="text" id="inp-worker-role" placeholder="例: 主任・電気工">
+      </div>
+      <div class="form-group" style="max-width:140px;">
+        <label>車番</label>
+        <input type="text" id="inp-worker-carno" placeholder="例: 品川 500 あ 1234">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-worker')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveWorker()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: クラウド設定 -->
+<div class="modal-overlay" id="modal-cloud">
+  <div class="modal" style="min-width:460px;max-width:580px;">
+    <h3>☁ クラウド同期設定（PC・携帯共有）</h3>
+    <div class="setup-box">
+      <h4>【手順①】Realtime Database の作成</h4>
+      <ol>
+        <li><a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> を開く</li>
+        <li>「プロジェクトを追加」→ 任意の名前で作成（Analyticsは不要）</li>
+        <li>左メニュー「<strong>構築</strong>」→「<strong>Realtime Database</strong>」をクリック</li>
+        <li>「<strong>データベースを作成</strong>」→ 場所はデフォルトでOK → 「<strong>テストモード</strong>」を選択して有効化</li>
+        <li>作成後に表示される <code>https://xxx-default-rtdb.xxx.firebasedatabase.app</code> の<br>URLをコピーして下の「<strong>データベースURL</strong>」欄に貼り付け</li>
+      </ol>
+      <h4 style="margin-top:10px;">【手順②】アプリの設定情報を取得</h4>
+      <ol>
+        <li>左メニューの歯車アイコン →「<strong>プロジェクトの設定</strong>」</li>
+        <li>下にスクロール →「<strong>マイアプリ</strong>」→ <code>&lt;/&gt;</code>（ウェブ）をクリック</li>
+        <li>アプリ名を入力（何でもOK）→「<strong>アプリを登録</strong>」</li>
+        <li>表示された <code>apiKey</code> <code>authDomain</code> など全体をコピーして<br>下の「<strong>設定JSON</strong>」欄に貼り付け</li>
+      </ol>
+    </div>
+    <div class="form-group">
+      <label>① データベースURL <small style="color:#888;">（Realtime Database のページに表示されるURL）</small></label>
+      <input type="text" id="inp-db-url" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app">
+    </div>
+    <div class="form-group">
+      <label>② 設定JSON <small style="color:#888;">（プロジェクトの設定 → マイアプリ → コピーした内容をそのまま貼り付け）</small></label>
+      <textarea id="inp-cloud-url" rows="6" placeholder="apiKey: &quot;AIza...&quot;,
+authDomain: &quot;your-app.firebaseapp.com&quot;,
+projectId: &quot;your-app&quot;,
+...
+（firebaseConfig = { } や const などは不要、中身だけでもOK）"></textarea>
+    </div>
+    <div class="cloud-status-row">
+      <span id="cloud-test-result"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cloud')">キャンセル</button>
+      <button class="btn btn-danger" onclick="clearCloudSettings()" style="margin-right:auto;">接続解除</button>
+      <button class="btn btn-secondary" onclick="testCloudConnection()">接続テスト</button>
+      <button class="btn btn-primary" onclick="saveCloudSettings()">保存して接続</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 客先マスタ編集 -->
+<div class="modal-overlay" id="modal-clientmaster">
+  <div class="modal">
+    <h3 id="modal-clientmaster-title">客先を追加</h3>
+    <div class="form-group">
+      <label>客先会社名 *</label>
+      <input type="text" id="inp-cm-company" placeholder="例: ○○化学工業株式会社">
+    </div>
+    <div class="form-group">
+      <label>プラント・場所</label>
+      <input type="text" id="inp-cm-plant" placeholder="例: 第一工場　B棟">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-clientmaster')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveClientMaster()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===========================
+// STATE
+// ===========================
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
+let currentTab   = 'schedule';
+let clientFilter = '';
+
+let editingProjectId    = null;
+let editingWorkerId     = null;
+let editingClientMasterId = null;
+let editingCellKey      = null;
+let editingRemarksId    = null;
+let editingSysUserId    = null;
+let cellStatus          = 'none';
+let dragSrcId           = null;
+let currentUser         = null;  // { id, name, email, role }
+
+const JP_HOLIDAYS = [
+  '2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24','2025-03-20',
+  '2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06',
+  '2025-07-21','2025-08-11','2025-09-15','2025-09-22','2025-09-23',
+  '2025-10-13','2025-11-03','2025-11-23','2025-11-24',
+  '2026-01-01','2026-01-12','2026-02-11','2026-02-23','2026-03-20',
+  '2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06',
+  '2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
+  '2026-10-12','2026-11-03','2026-11-23','2026-12-23',
+];
+
+// ===========================
+// STORAGE (File System Access API + localStorage fallback)
+// ===========================
+let fileHandle = null;
+let fileData   = {};   // 全データのオンメモリキャッシュ
+
+// 起動時: localStorageの既存データをfileDataへ移行
+function initFileData() {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    try { fileData[k] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
+  }
+}
+
+function getFileItem(key, def) {
+  return (fileData[key] !== undefined) ? fileData[key] : def;
+}
+function setFileItem(key, val) {
+  fileData[key] = val;
+  autoSave();
+}
+
+function getWorkers()       { return getFileItem('workers_v1', []); }
+function setWorkers(d)      { setFileItem('workers_v1', d); }
+function getClientMasters() { return getFileItem('clients_v1', []); }
+function setClientMasters(d){ setFileItem('clients_v1', d); }
+function getSysUsers()      { return getFileItem('sysUsers', []); }
+function setSysUsers(d)     { setFileItem('sysUsers', d); }
+
+function getMonthData(y, m) { return getFileItem(`month_${y}_${m}`, {projects:[]}); }
+function setMonthData(y, m, d){ setFileItem(`month_${y}_${m}`, d); }
+function getProjects()      { return getMonthData(currentYear, currentMonth).projects; }
+function setProjects(p)     { const d = getMonthData(currentYear, currentMonth); d.projects = p; setMonthData(currentYear, currentMonth, d); }
+function getProject(id)     { return getProjects().find(p => p.id === id); }
+
+// ===========================
+// CLOUD SYNC (Firebase Realtime Database)
+// ===========================
+let fbApp = null;
+let fbRef = null;
+let fbConfigJson = localStorage.getItem('firebase_config') || '';
+
+function openCloudSettings() {
+  if (fbConfigJson) {
+    try {
+      const cfg = JSON.parse(fbConfigJson);
+      document.getElementById('inp-db-url').value = cfg.databaseURL || '';
+      // databaseURL以外を再表示
+      const display = Object.assign({}, cfg);
+      delete display.databaseURL;
+      document.getElementById('inp-cloud-url').value = JSON.stringify(display, null, 2);
+    } catch(e) {}
+  }
+  document.getElementById('cloud-test-result').textContent = '';
+  openModal('modal-cloud');
+}
+
+function buildFirebaseConfig() {
+  const dbUrl = document.getElementById('inp-db-url').value.trim();
+  const raw   = document.getElementById('inp-cloud-url').value.trim();
+  if (!dbUrl) throw new Error('データベースURLを入力してください');
+  if (!raw)   throw new Error('設定JSONを入力してください');
+  const cfg = parseFirebaseConfig(raw);
+  cfg.databaseURL = dbUrl;
+  return cfg;
+}
+
+async function testCloudConnection() {
+  const resultEl = document.getElementById('cloud-test-result');
+  resultEl.style.color = '#555';
+  resultEl.textContent = '接続テスト中...';
+  try {
+    const cfg = buildFirebaseConfig();
+    await initFirebase(cfg);
+    await fbRef.once('value');
+    resultEl.style.color = '#2e7d32';
+    resultEl.textContent = '✓ 接続成功！';
+  } catch (e) {
+    resultEl.style.color = '#c62828';
+    resultEl.textContent = '✗ 接続失敗: ' + e.message;
+  }
+}
+
+async function saveCloudSettings() {
+  try {
+    const cfg = buildFirebaseConfig();
+    await initFirebase(cfg);
+    fbConfigJson = JSON.stringify(cfg);
+    localStorage.setItem('firebase_config', fbConfigJson);
+    closeModal('modal-cloud');
+    const ok = await loadFromCloud();
+    if (ok) renderAll();
+  } catch (e) {
+    alert('接続に失敗しました:\n' + e.message);
+  }
+}
+
+function clearCloudSettings() {
+  if (!confirm('クラウド接続を解除しますか？\n（このデバイスの設定が削除されます。データは消えません）')) return;
+  fbConfigJson = '';
+  localStorage.removeItem('firebase_config');
+  fbApp = null; fbRef = null;
+  fileHandle = null;
+  updateFileStatus('disconnected');
+  closeModal('modal-cloud');
+}
+
+function parseFirebaseConfig(raw) {
+  // { } の中身だけ取り出す（あれば）。なければそのまま使う
+  const inner = (raw.match(/\{([\s\S]*)\}/) || [null, raw])[1];
+  // 行頭のキー（クォートなし）をダブルクォートで囲んでJSON化
+  const fixed = '{' + inner.replace(/^\s*(\w+)\s*:/mg, '"$1":') + '}';
+  try { return JSON.parse(fixed); } catch(e) {}
+  throw new Error('設定JSONの形式が正しくありません。コピーした内容をそのまま貼り付けてください。');
+}
+
+async function initFirebase(cfg) {
+  if (!cfg.databaseURL) throw new Error('databaseURL がありません。Realtime Database を有効にしてください。');
+  // 既存アプリを削除
+  if (fbApp) { try { await fbApp.delete(); } catch(e) {} }
+  fbApp = firebase.initializeApp(cfg, 'kouji_' + Date.now());
+  fbRef = fbApp.database().ref('koujiData');
+}
+
+async function loadFromCloud() {
+  if (!fbRef) return false;
+  try {
+    updateFileStatus('syncing', '読込中...');
+    const snap = await fbRef.once('value');
+    const cloudData = snap.val();
+    if (cloudData && Object.keys(cloudData).length > 0) {
+      // Firebaseにデータがある場合はそちらを使う
+      fileData = cloudData;
+    } else {
+      // Firebaseが空の場合はlocalStorageのデータをFirebaseに移行する
+      if (Object.keys(fileData).length > 0) {
+        await fbRef.set(fileData);
+      }
+    }
+    updateFileStatus('connected', '☁ Firebase同期中');
+    return true;
+  } catch (e) {
+    console.error('Firebase読込エラー:', e);
+    updateFileStatus('disconnected');
+    return false;
+  }
+}
+
+async function writeToCloud() {
+  if (!fbRef) return;
+  try {
+    await fbRef.set(fileData);
+  } catch (e) {
+    console.error('Firebase保存エラー:', e);
+  }
+}
+
+// ===========================
+// LOCAL FILE (PC用 - File System Access API)
+// ===========================
+
+// 自動保存: クラウド優先、次にローカルファイル、最後にlocalStorage
+let saveTimer = null;
+function autoSave() {
+  clearTimeout(saveTimer);
+  if (fbRef) {
+    saveTimer = setTimeout(writeToCloud, 500);
+  } else if (fileHandle) {
+    saveTimer = setTimeout(writeToFile, 400);
+  } else {
+    for (const [k, v] of Object.entries(fileData)) {
+      try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {}
+    }
+  }
+}
+
+async function writeToFile() {
+  if (!fileHandle) return;
+  try {
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(fileData, null, 2));
+    await writable.close();
+  } catch (e) {
+    console.error('ファイル書き込みエラー:', e);
+    updateFileStatus('disconnected');
+  }
+}
+
+async function openDataFile() {
+  if (!window.showOpenFilePicker) {
+    alert('このブラウザはFile System Access APIに対応していません。\nGoogle Chrome をご使用ください。');
+    return;
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'データファイル (JSON)', accept: {'application/json': ['.json']} }],
+      multiple: false
+    });
+    fileHandle = handle;
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    fileData = JSON.parse(text);
+    fbRef = null;
+    updateFileStatus('connected', fileHandle.name);
+    renderAll();
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('ファイルを開けませんでした: ' + e.message);
+  }
+}
+
+async function newDataFile() {
+  if (!window.showSaveFilePicker) {
+    alert('このブラウザはFile System Access APIに対応していません。\nGoogle Chrome をご使用ください。');
+    return;
+  }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: '工事管理データ.json',
+      types: [{ description: 'データファイル (JSON)', accept: {'application/json': ['.json']} }]
+    });
+    fileHandle = handle;
+    fbRef = null;
+    await writeToFile();
+    updateFileStatus('connected', fileHandle.name);
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('ファイルを作成できませんでした: ' + e.message);
+  }
+}
+
+function updateFileStatus(state, name) {
+  const el = document.getElementById('file-status');
+  if (state === 'connected') {
+    el.className = 'file-status connected';
+    el.textContent = '✓ ' + (name || '接続中');
+    el.title = name || 'データ接続中';
+  } else if (state === 'syncing') {
+    el.className = 'file-status syncing';
+    el.textContent = '↻ ' + (name || '同期中');
+    el.title = '同期中...';
+  } else {
+    el.className = 'file-status disconnected';
+    el.textContent = '⚠ 未接続';
+    el.title = 'クラウド未接続。「☁ クラウド設定」でURLを登録してください。';
+  }
+}
+
+// ===========================
+// LOGIN / USER SESSION
+// ===========================
+function showLoginOverlay() {
+  const users = getSysUsers();
+  const overlay = document.getElementById('login-overlay');
+  overlay.style.display = 'flex';
+  if (users.length === 0) {
+    document.getElementById('login-setup-link').style.display = 'block';
+  }
+  // 前回ログインしたメールアドレスを自動入力
+  const savedEmail = localStorage.getItem('last_login_email') || '';
+  document.getElementById('inp-login-email').value = savedEmail;
+}
+
+function hideLoginOverlay() {
+  document.getElementById('login-overlay').style.display = 'none';
+}
+
+function showInitSetup() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('init-setup-form').style.display = 'block';
+}
+
+function showLoginForm() {
+  document.getElementById('init-setup-form').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
+}
+
+function doLogin() {
+  const email = document.getElementById('inp-login-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'メールアドレスを入力してください'; return; }
+  const users = getSysUsers();
+  const user  = users.find(u => u.email.toLowerCase() === email);
+  if (!user) { errEl.textContent = '登録されていないメールアドレスです'; return; }
+  localStorage.setItem('last_login_email', email);
+  setCurrentUser(user);
+  hideLoginOverlay();
+  renderAll();
+}
+
+function doInitSetup() {
+  const name  = document.getElementById('inp-init-name').value.trim();
+  const email = document.getElementById('inp-init-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('init-error');
+  errEl.textContent = '';
+  if (!name)  { errEl.textContent = '氏名を入力してください'; return; }
+  if (!email) { errEl.textContent = 'メールアドレスを入力してください'; return; }
+  const newUser = { id: uid(), name, email, role: 'admin', createdAt: Date.now() };
+  setSysUsers([newUser]);
+  setCurrentUser(newUser);
+  hideLoginOverlay();
+  renderAll();
+}
+
+function setCurrentUser(user) {
+  currentUser = user;
+  localStorage.setItem('currentUserId', user.id);
+  // ヘッダーのユーザーバッジを更新
+  const badge   = document.getElementById('user-badge');
+  const avatar  = document.getElementById('user-avatar');
+  const nameEl  = document.getElementById('user-name-label');
+  badge.style.display = 'flex';
+  avatar.textContent  = user.name.charAt(0);
+  nameEl.textContent  = user.name;
+  // 管理者のみユーザー管理タブを表示
+  document.getElementById('tab-btn-users').style.display =
+    user.role === 'admin' ? '' : 'none';
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('currentUserId');
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('tab-btn-users').style.display = 'none';
+  document.getElementById('inp-login-email').value = '';
+  document.getElementById('login-error').textContent = '';
+  // 工程管理タブに戻す
+  switchTab('schedule');
+  showLoginOverlay();
+}
+
+function restoreSession() {
+  const savedId = localStorage.getItem('currentUserId');
+  if (!savedId) return false;
+  const users = getSysUsers();
+  const user  = users.find(u => u.id === savedId);
+  if (!user) return false;
+  setCurrentUser(user);
+  return true;
+}
+
+// ===========================
+// USER MANAGEMENT
+// ===========================
+function renderSysUsers() {
+  const users = getSysUsers();
+  const tbody = document.getElementById('sysuser-tbody');
+  if (users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">ユーザーがいません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td style="text-align:center;">${i+1}</td>
+      <td>${esc(u.name)}</td>
+      <td>${esc(u.email)}</td>
+      <td>${u.role === 'admin' ? '<span class="admin-badge">管理者</span>' : '一般'}</td>
+      <td class="col-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editSysUser('${u.id}')">編集</button>
+        <button class="btn btn-danger btn-sm"    onclick="deleteSysUser('${u.id}')">削除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openUserModal(id) {
+  editingSysUserId = id || null;
+  document.getElementById('modal-sysuser-title').textContent = id ? 'ユーザーを編集' : 'ユーザーを追加';
+  if (id) {
+    const u = getSysUsers().find(u => u.id === id);
+    document.getElementById('inp-su-name').value  = u.name;
+    document.getElementById('inp-su-email').value = u.email;
+    document.getElementById('inp-su-role').value  = u.role || 'user';
+  } else {
+    document.getElementById('inp-su-name').value  = '';
+    document.getElementById('inp-su-email').value = '';
+    document.getElementById('inp-su-role').value  = 'user';
+  }
+  openModal('modal-sysuser');
+}
+
+function editSysUser(id) { openUserModal(id); }
+
+function saveSysUser() {
+  const name  = document.getElementById('inp-su-name').value.trim();
+  const email = document.getElementById('inp-su-email').value.trim().toLowerCase();
+  const role  = document.getElementById('inp-su-role').value;
+  if (!name)  { alert('氏名を入力してください'); return; }
+  if (!email) { alert('メールアドレスを入力してください'); return; }
+  const users = getSysUsers();
+  if (editingSysUserId) {
+    const u = users.find(u => u.id === editingSysUserId);
+    if (u) { u.name = name; u.email = email; u.role = role; }
+    // ログイン中のユーザーが自分自身を編集した場合、セッション更新
+    if (currentUser && currentUser.id === editingSysUserId) {
+      setCurrentUser(Object.assign({}, u));
+    }
+  } else {
+    const dup = users.find(u => u.email === email);
+    if (dup) { alert('このメールアドレスはすでに登録されています'); return; }
+    users.push({ id: uid(), name, email, role, createdAt: Date.now() });
+  }
+  setSysUsers(users);
+  closeModal('modal-sysuser');
+  renderSysUsers();
+}
+
+function deleteSysUser(id) {
+  if (currentUser && currentUser.id === id) {
+    alert('自分自身は削除できません');
+    return;
+  }
+  const u = getSysUsers().find(u => u.id === id);
+  if (!confirm(`「${u.name}」を削除しますか？`)) return;
+  setSysUsers(getSysUsers().filter(u => u.id !== id));
+  renderSysUsers();
+}
+
+// ===========================
+// UTILS
+// ===========================
+function uid()           { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); }
+function dayOfWeek(y,m,d){ return new Date(y, m-1, d).getDay(); }
+function dateStr(y,m,d)  { return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function isHoliday(ds)   { return JP_HOLIDAYS.includes(ds); }
+function monthLabel()    { return `${currentYear}年 ${currentMonth}月`; }
+function esc(s)          { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// 実工数を計算
+function calcActual(proj) {
+  const days = daysInMonth(currentYear, currentMonth);
+  let actual = 0;
+  for (let d = 1; d <= days; d++) {
+    const ent = (proj.schedule||{})[dateStr(currentYear, currentMonth, d)];
+    if (ent && ent.workers) actual += ent.workers.length;
+  }
+  return actual;
+}
+
+// ===========================
+// NAVIGATION
+// ===========================
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+  if (currentMonth < 1)  { currentMonth = 12; currentYear--; }
+  clientFilter = '';
+  renderAll();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const t = b.getAttribute('onclick').match(/'(\w+)'/)[1];
+    b.classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab==='hours')   renderHours();
+  if (tab==='workers') renderWorkers();
+  if (tab==='clients') renderClientMasters();
+  if (tab==='users')   renderSysUsers();
+}
+
+function applyClientFilter() {
+  clientFilter = document.getElementById('client-filter').value;
+  renderSchedule();
+}
+
+// ===========================
+// RENDER ALL
+// ===========================
+function renderAll() {
+  document.getElementById('current-month-label').textContent = monthLabel();
+  document.getElementById('print-title').textContent = `月間工程表　${monthLabel()}`;
+  document.getElementById('hours-title').textContent = `工数管理　${monthLabel()}`;
+  updateClientFilterOptions();
+  renderSchedule();
+  if (currentTab==='workers') renderWorkers();
+  if (currentTab==='clients') renderClientMasters();
+  if (currentTab==='hours')   renderHours();
+}
+
+function updateClientFilterOptions() {
+  const masters  = getClientMasters();
+  const projects = getProjects();
+  // Collect unique client names used in projects
+  const usedClients = [...new Set(projects.map(p => p.client||'').filter(Boolean))];
+  // Union with masters
+  const allClients = [...new Set([...masters.map(c=>c.company), ...usedClients])].sort();
+
+  const sel = document.getElementById('client-filter');
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">全表示（客先グループ）</option>` +
+    allClients.map(c => `<option value="${esc(c)}" ${cur===c?'selected':''}>${esc(c)}</option>`).join('');
+  if (!allClients.includes(cur)) sel.value = '';
+}
+
+// ===========================
+// SCHEDULE RENDER
+// ===========================
+function renderSchedule() {
+  const allProjects = getProjects();
+  const days = daysInMonth(currentYear, currentMonth);
+  const DOW  = ['日','月','火','水','木','金','土'];
+  // total cols = 4 sticky + days + total + est + act + margin + remarks + status
+  const COLS = 4 + days + 6;
+
+  // THEAD
+  const thead = document.getElementById('schedule-thead');
+  let h1 = '<tr>';
+  h1 += `<th class="sticky-left sl-no" rowspan="2">No.</th>`;
+  h1 += `<th class="sticky-left sl-client text-left overflow-ellipsis" rowspan="2">客先</th>`;
+  h1 += `<th class="sticky-left sl-name  text-left overflow-ellipsis" rowspan="2">工事名</th>`;
+  h1 += `<th class="sticky-left sl-kouji text-left overflow-ellipsis text-sm" rowspan="2">工種</th>`;
+  for (let d=1; d<=days; d++) {
+    const ds  = dateStr(currentYear, currentMonth, d);
+    const dow = dayOfWeek(currentYear, currentMonth, d);
+    const cls = isHoliday(ds)||dow===0 ? 'th-sun' : (dow===6?'th-sat':'');
+    h1 += `<th class="col-day ${cls}">${d}</th>`;
+  }
+  h1 += `<th class="col-total" rowspan="2">合計<br>人工</th>`;
+  h1 += `<th class="col-est"   rowspan="2">見積<br>人工</th>`;
+  h1 += `<th class="col-act"   rowspan="2">実<br>人工</th>`;
+  h1 += `<th class="col-margin" rowspan="2">粗利率<br>(%)</th>`;
+  h1 += `<th class="col-remarks" rowspan="2">備考</th>`;
+  h1 += `<th class="col-status no-print" rowspan="2">状態</th>`;
+  h1 += '</tr>';
+
+  let h2 = '<tr>';
+  for (let d=1; d<=days; d++) {
+    const ds  = dateStr(currentYear, currentMonth, d);
+    const dow = dayOfWeek(currentYear, currentMonth, d);
+    const cls = isHoliday(ds)||dow===0 ? 'th-sun' : (dow===6?'th-sat':'');
+    h2 += `<th class="col-day ${cls}">${DOW[dow]}</th>`;
+  }
+  h2 += '</tr>';
+  thead.innerHTML = h1 + h2;
+
+  // TBODY
+  const tbody   = document.getElementById('schedule-tbody');
+  const workers = getWorkers();
+  const wMap    = Object.fromEntries(workers.map(w=>[w.id,w]));
+
+  const projects = clientFilter
+    ? allProjects.filter(p => (p.client || '') === clientFilter)
+    : allProjects;
+
+  if (projects.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${COLS}" class="empty-state">工事がありません。「＋ 工事追加」から追加してください。</td></tr>`;
+    return;
+  }
+
+  let rows = '';
+  if (clientFilter) {
+    projects.forEach((proj, idx) => { rows += buildRow(proj, idx, days, wMap); });
+  } else {
+    // Stable grouping by client
+    const seen = {}, groups = [];
+    projects.forEach(p => {
+      const c = p.client || '（客先未設定）';
+      if (!seen[c]) { seen[c]=true; groups.push({client:c, items:[]}); }
+      groups.find(g=>g.client===c).items.push(p);
+    });
+    let gi = 0;
+    groups.forEach((g, gidx) => {
+      rows += `<tr class="group-header-row${gidx===0?' first-group':''}">
+        <td colspan="${COLS}">🏢 ${esc(g.client)}</td>
+      </tr>`;
+      g.items.forEach(proj => { rows += buildRow(proj, gi++, days, wMap); });
+    });
+  }
+  rows += buildAvailableRow(allProjects, days, workers, wMap);
+  tbody.innerHTML = rows;
+}
+
+function buildAvailableRow(allProjects, days, workers, wMap) {
+  if (workers.length === 0) return '';
+
+  let cells = '';
+  for (let d = 1; d <= days; d++) {
+    const ds  = dateStr(currentYear, currentMonth, d);
+    const dow = dayOfWeek(currentYear, currentMonth, d);
+    const hol = isHoliday(ds);
+
+    // 全工事を対象に当日の割当済み作業員IDを収集
+    const assignedIds = new Set();
+    allProjects.forEach(proj => {
+      const ent = (proj.schedule || {})[ds];
+      if (ent && ent.workers) ent.workers.forEach(id => assignedIds.add(id));
+    });
+
+    const available = workers.filter(w => !assignedIds.has(w.id));
+    const baseCls = hol || dow === 0 ? 'td-sun' : (dow === 6 ? 'td-sat' : '');
+
+    let content = '';
+    if (available.length > 0) {
+      const abbr = available.map(w => w.name.replace(/[\s　]+/g,'')[0]).join('');
+      const full = available.map(w => w.name + (w.company ? '（'+w.company+'）' : '')).join('、');
+      content = `<div class="day-cell-content avail-names" title="${esc(full)}">${esc(abbr)}</div>`;
+    }
+
+    cells += `<td class="col-day avail-cell ${baseCls}">${content}</td>`;
+  }
+
+  return `
+    <tr class="avail-row no-print">
+      <td colspan="4" class="avail-label sticky-left sl-no" style="left:0;">未割当<br>作業員</td>
+      ${cells}
+      <td class="col-total avail-cell"></td>
+      <td class="col-est avail-cell"></td>
+      <td class="col-act avail-cell"></td>
+      <td class="col-margin avail-cell"></td>
+      <td class="col-remarks avail-cell"></td>
+      <td class="col-status no-print avail-cell"></td>
+    </tr>`;
+}
+
+function buildRow(proj, idx, days, wMap) {
+  let cells = '';
+  let total = 0;
+
+  for (let d=1; d<=days; d++) {
+    const ds  = dateStr(currentYear, currentMonth, d);
+    const dow = dayOfWeek(currentYear, currentMonth, d);
+    const hol = isHoliday(ds);
+    const ent = (proj.schedule||{})[ds];
+
+    let cls = '';
+    if (ent && ent.status==='confirmed')   cls='confirmed';
+    else if (ent && ent.status==='unconfirmed') cls='unconfirmed';
+    else cls = hol||dow===0 ? 'td-sun' : (dow===6?'td-sat':'');
+
+    let content = '';
+    if (ent && ent.workers?.length) {
+      total += ent.workers.length;
+      const names = ent.workers
+        .map(wid => wMap[wid] ? wMap[wid].name.replace(/[\s　]+/g,'')[0] : '?')
+        .join('・');
+      content = `<div class="day-cell-content"><span class="cell-workers">${esc(names)}</span></div>`;
+    }
+
+    // ホバーtitle: 作業内容 + メモ（後方互換: 旧noteも考慮）
+    const workContent = ent?.workContent || ent?.note || '';
+    const memo        = ent?.memo || '';
+    let ttlParts = [];
+    if (workContent) ttlParts.push(`【作業内容】${workContent}`);
+    if (memo)        ttlParts.push(`【メモ】${memo}`);
+    const ttl = ttlParts.length ? ` title="${esc(ttlParts.join('\n'))}"` : '';
+    cells += `<td class="col-day ${cls}"${ttl} onclick="openCellModal('${proj.id}','${ds}')">${content}</td>`;
+  }
+
+  // 工数列
+  const est    = proj.estimatedHours || 0;
+  const act    = calcActual(proj);
+  const margin = est > 0 ? (((est - act) / est) * 100).toFixed(1) : null;
+  const marginTxt = margin === null
+    ? '<span style="color:#aaa">—</span>'
+    : parseFloat(margin) >= 0
+      ? `<span style="color:#2e7d32">${margin}%</span>`
+      : `<span style="color:#c62828">${margin}%</span>`;
+
+  const remarks = proj.remarks || '';
+
+  return `
+  <tr class="project-row ${proj.completed ? 'proj-completed' : ''}" data-id="${proj.id}"
+      ondragover="onDragOver(event,'${proj.id}')"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event,'${proj.id}')">
+    <td class="sticky-left sl-no">
+      <span class="drag-handle" draggable="true"
+            ondragstart="onDragStart(event,'${proj.id}')"
+            ondragend="onDragEnd(event)" title="ドラッグして並び替え">⠿</span>
+      ${idx+1}
+      <div class="row-btns">
+        <button class="btn btn-secondary btn-sm" onclick="editProject('${proj.id}')" title="編集">✎</button>
+        <button class="btn btn-danger btn-sm"    onclick="deleteProject('${proj.id}')" title="削除">✕</button>
+      </div>
+    </td>
+    <td class="sticky-left sl-client text-left text-sm overflow-ellipsis" title="${esc(proj.client||'')}">
+      ${esc(proj.client||'—')}<br>
+      <span style="font-size:10px;color:#666;">${esc(proj.plant||'')}</span>
+    </td>
+    <td class="sticky-left sl-name text-left overflow-ellipsis" title="${esc(proj.name)}${proj.quoteNo ? '\n見積番号: '+proj.quoteNo : ''}">
+      ${esc(proj.name)}
+      ${proj.quoteNo ? `<br><small style="color:#888;font-size:10px;">${esc(proj.quoteNo)}</small>` : ''}
+    </td>
+    <td class="sticky-left sl-kouji text-left text-sm overflow-ellipsis" title="${esc(proj.kouji||'')}">${esc(proj.kouji||'')}</td>
+    ${cells}
+    <td class="col-total">${total||''}</td>
+    <td class="col-est">${est||''}</td>
+    <td class="col-act">${act>0?act:'—'}</td>
+    <td class="col-margin">${marginTxt}</td>
+    <td class="col-remarks" onclick="openRemarksModal('${proj.id}')" title="${esc(remarks)}">${esc(remarks)}</td>
+    <td class="col-status no-print">
+      <label class="status-check"><input type="checkbox" ${proj.completed?'checked':''} onchange="toggleCompleted('${proj.id}',this.checked)"> 完工</label>
+      <label class="status-check"><input type="checkbox" ${proj.carryOver?'checked':''} onchange="toggleCarryOver('${proj.id}',this.checked)"> 翌月持越</label>
+    </td>
+  </tr>`;
+}
+
+// ===========================
+// 完工・翌月持越
+// ===========================
+function toggleCompleted(id, checked) {
+  const projects = getProjects();
+  const p = projects.find(p => p.id === id);
+  if (p) p.completed = checked;
+  setProjects(projects);
+  renderSchedule();
+}
+
+function toggleCarryOver(id, checked) {
+  const projects = getProjects();
+  const p = projects.find(p => p.id === id);
+  if (!p) return;
+  p.carryOver = checked;
+  setProjects(projects);
+  let ny = currentYear, nm = currentMonth + 1;
+  if (nm > 12) { nm = 1; ny++; }
+  const nextData = getMonthData(ny, nm);
+  if (checked) {
+    if (!nextData.projects.find(np => np.id === id)) {
+      const { schedule, completed, carryOver, ...info } = p;
+      nextData.projects.push({ ...info, schedule: {}, completed: false, carryOver: false });
+      setMonthData(ny, nm, nextData);
+    }
+    alert(`「${p.name}」を ${ny}年${nm}月 に持越しました。`);
+  } else {
+    const ni = nextData.projects.findIndex(np => np.id === id);
+    if (ni >= 0) {
+      const hasSchedule = Object.keys(nextData.projects[ni].schedule || {}).length > 0;
+      if (hasSchedule) {
+        alert(`${ny}年${nm}月にスケジュールが入力済のため削除できません。手動で削除してください。`);
+        p.carryOver = true;
+        setProjects(projects);
+      } else {
+        nextData.projects.splice(ni, 1);
+        setMonthData(ny, nm, nextData);
+      }
+    }
+  }
+  renderSchedule();
+}
+
+// ===========================
+// DRAG & DROP
+// ===========================
+function onDragStart(e, id) {
+  dragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id);
+  setTimeout(() => {
+    const r = document.querySelector(`tr[data-id="${id}"]`);
+    if (r) r.classList.add('dragging');
+  }, 0);
+}
+function onDragEnd(e) {
+  document.querySelectorAll('.project-row').forEach(r => r.classList.remove('dragging','drag-over'));
+  dragSrcId = null;
+}
+function onDragOver(e, id) {
+  e.preventDefault();
+  if (id===dragSrcId) return;
+  document.querySelectorAll('.project-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+  const r = document.querySelector(`tr[data-id="${id}"]`);
+  if (r) r.classList.add('drag-over');
+}
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDrop(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  if (!dragSrcId || dragSrcId===targetId) return;
+  const projects = getProjects();
+  const fi = projects.findIndex(p=>p.id===dragSrcId);
+  const ti = projects.findIndex(p=>p.id===targetId);
+  if (fi<0||ti<0) return;
+  const [item] = projects.splice(fi, 1);
+  projects.splice(ti, 0, item);
+  setProjects(projects);
+  dragSrcId = null;
+  renderSchedule();
+}
+
+// ===========================
+// PROJECT MODAL
+// ===========================
+function openProjectModal(id) {
+  editingProjectId = id || null;
+  document.getElementById('modal-project-title').textContent = id ? '工事を編集' : '工事を追加';
+
+  const masters = getClientMasters();
+  const companies = [...new Set(masters.map(c=>c.company))].sort();
+
+  const cSel = document.getElementById('inp-proj-client');
+  cSel.innerHTML = `<option value="">-- 選択してください --</option>` +
+    companies.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  if (id) {
+    const p = getProject(id);
+    cSel.value = p.client || '';
+    refreshPlantSelect(p.client, p.plant);
+    document.getElementById('inp-proj-name').value          = p.name    || '';
+    document.getElementById('inp-proj-quoteno').value       = p.quoteNo || '';
+    document.getElementById('inp-proj-kouji').value         = p.kouji   || '';
+    document.getElementById('inp-proj-hours').value         = p.estimatedHours || '';
+    document.getElementById('inp-proj-registered-by').value = p.registeredBy || '';
+  } else {
+    cSel.value = '';
+    refreshPlantSelect('', '');
+    document.getElementById('inp-proj-name').value          = '';
+    document.getElementById('inp-proj-quoteno').value       = '';
+    document.getElementById('inp-proj-kouji').value         = '';
+    document.getElementById('inp-proj-hours').value         = '';
+    document.getElementById('inp-proj-registered-by').value = currentUser ? currentUser.name : '';
+  }
+  openModal('modal-project');
+}
+
+function onClientSelectChange() {
+  const company = document.getElementById('inp-proj-client').value;
+  refreshPlantSelect(company, '');
+}
+
+function refreshPlantSelect(company, selectedPlant) {
+  const masters = getClientMasters();
+  const plants  = masters.filter(c=>c.company===company).map(c=>c.plant).filter(Boolean);
+  const pSel = document.getElementById('inp-proj-plant');
+  pSel.innerHTML = `<option value="">-- 選択してください --</option>` +
+    plants.map(p => `<option value="${esc(p)}" ${p===selectedPlant?'selected':''}>${esc(p)}</option>`).join('');
+  if (selectedPlant) pSel.value = selectedPlant;
+}
+
+function editProject(id) { openProjectModal(id); }
+
+function saveProject() {
+  const name = document.getElementById('inp-proj-name').value.trim();
+  if (!name) { alert('工事名を入力してください。'); return; }
+  const client = document.getElementById('inp-proj-client').value;
+  const plant  = document.getElementById('inp-proj-plant').value;
+  const quoteNo = document.getElementById('inp-proj-quoteno').value.trim();
+  const kouji   = document.getElementById('inp-proj-kouji').value.trim();
+  const hrs     = parseFloat(document.getElementById('inp-proj-hours').value) || 0;
+
+  const registeredBy = currentUser ? currentUser.name : '';
+  const projects = getProjects();
+  if (editingProjectId) {
+    const p = projects.find(p=>p.id===editingProjectId);
+    if (p) Object.assign(p, {client, plant, name, quoteNo, kouji, estimatedHours:hrs});
+  } else {
+    projects.push({id:uid(), client, plant, name, quoteNo, kouji, estimatedHours:hrs, schedule:{}, remarks:'', registeredBy});
+  }
+  setProjects(projects);
+  closeModal('modal-project');
+  updateClientFilterOptions();
+  renderSchedule();
+  if (currentTab==='hours') renderHours();
+}
+
+function deleteProject(id) {
+  if (!confirm('この工事を削除しますか？')) return;
+  setProjects(getProjects().filter(p=>p.id!==id));
+  updateClientFilterOptions();
+  renderSchedule();
+  if (currentTab==='hours') renderHours();
+}
+
+// ===========================
+// REMARKS MODAL
+// ===========================
+function openRemarksModal(id) {
+  editingRemarksId = id;
+  const proj = getProject(id);
+  document.getElementById('modal-remarks-title').textContent = `備考：${proj.name}`;
+  document.getElementById('inp-remarks').value = proj.remarks || '';
+  openModal('modal-remarks');
+}
+function saveRemarks() {
+  if (!editingRemarksId) return;
+  const projects = getProjects();
+  const p = projects.find(p=>p.id===editingRemarksId);
+  if (p) p.remarks = document.getElementById('inp-remarks').value;
+  setProjects(projects);
+  closeModal('modal-remarks');
+  renderSchedule();
+}
+
+// ===========================
+// CELL MODAL
+// ===========================
+function openCellModal(projectId, ds) {
+  const proj = getProject(projectId);
+  if (!proj) return;
+  editingCellKey = `${projectId}|${ds}`;
+  const ent = (proj.schedule||{})[ds] || {};
+  const [,,m,d] = ds.match(/(\d+)-(\d+)-(\d+)/);
+  document.getElementById('modal-cell-title').textContent = `${proj.name}　${parseInt(m)}月${parseInt(d)}日`;
+  cellStatus = ent.status || 'none';
+  updateStatusUI();
+
+  const workers  = getWorkers();
+  const selected = ent.workers || [];
+  const grid = document.getElementById('modal-worker-grid');
+  grid.innerHTML = workers.length === 0
+    ? '<span style="color:#999;font-size:12px;">作業者が登録されていません</span>'
+    : workers.map(w =>
+        `<label class="worker-check">
+          <input type="checkbox" name="w" value="${w.id}" ${selected.includes(w.id)?'checked':''}>
+          <span>${esc(w.name)}${w.company?'<br><small style="color:#888">'+esc(w.company)+'</small>':''}</span>
+        </label>`
+      ).join('');
+  // 後方互換: 旧 note → workContent へフォールバック
+  document.getElementById('inp-cell-work').value = ent.workContent || ent.note || '';
+  document.getElementById('inp-cell-memo').value = ent.memo || '';
+  openModal('modal-cell');
+}
+
+function selectStatus(s) { cellStatus=s; updateStatusUI(); }
+function updateStatusUI() {
+  document.getElementById('sr-confirmed').className   = 'status-radio'+(cellStatus==='confirmed'  ?' selected-confirmed'  :'');
+  document.getElementById('sr-unconfirmed').className = 'status-radio'+(cellStatus==='unconfirmed'?' selected-unconfirmed':'');
+  document.getElementById('sr-none').className        = 'status-radio'+(cellStatus==='none'       ?' selected-none'       :'');
+}
+
+function saveCell() {
+  if (!editingCellKey) return;
+  const [projectId, ds] = editingCellKey.split('|');
+  const projects = getProjects();
+  const proj = projects.find(p=>p.id===projectId);
+  if (!proj) return;
+  if (!proj.schedule) proj.schedule = {};
+
+  const selWorkers  = Array.from(
+    document.querySelectorAll('#modal-worker-grid input[type=checkbox]:checked')
+  ).map(cb=>cb.value);
+  const workContent = document.getElementById('inp-cell-work').value.trim();
+  const memo        = document.getElementById('inp-cell-memo').value.trim();
+
+  if (cellStatus==='none' && !selWorkers.length && !workContent && !memo) {
+    delete proj.schedule[ds];
+  } else {
+    proj.schedule[ds] = {status:cellStatus, workers:selWorkers, workContent, memo};
+  }
+  setProjects(projects);
+  closeModal('modal-cell');
+  renderSchedule();
+  if (currentTab==='hours') renderHours();
+}
+
+// ===========================
+// CLIENT MASTER
+// ===========================
+function openClientMasterModal(id) {
+  editingClientMasterId = id || null;
+  document.getElementById('modal-clientmaster-title').textContent = id ? '客先を編集' : '客先を追加';
+  if (id) {
+    const c = getClientMasters().find(c=>c.id===id);
+    document.getElementById('inp-cm-company').value = c.company || '';
+    document.getElementById('inp-cm-plant').value   = c.plant   || '';
+  } else {
+    document.getElementById('inp-cm-company').value = '';
+    document.getElementById('inp-cm-plant').value   = '';
+  }
+  openModal('modal-clientmaster');
+}
+
+function saveClientMaster() {
+  const company = document.getElementById('inp-cm-company').value.trim();
+  if (!company) { alert('客先会社名を入力してください。'); return; }
+  const plant = document.getElementById('inp-cm-plant').value.trim();
+  const masters = getClientMasters();
+  if (editingClientMasterId) {
+    const c = masters.find(c=>c.id===editingClientMasterId);
+    if (c) { c.company=company; c.plant=plant; }
+  } else {
+    masters.push({id:uid(), company, plant});
+  }
+  setClientMasters(masters);
+  closeModal('modal-clientmaster');
+  renderClientMasters();
+  updateClientFilterOptions();
+}
+
+function deleteClientMaster(id) {
+  if (!confirm('この客先を削除しますか？')) return;
+  setClientMasters(getClientMasters().filter(c=>c.id!==id));
+  renderClientMasters();
+  updateClientFilterOptions();
+}
+
+function renderClientMasters() {
+  const masters = getClientMasters();
+  const tbody   = document.getElementById('clientmaster-tbody');
+  tbody.innerHTML = masters.length === 0
+    ? `<tr><td colspan="4" class="empty-state">客先が登録されていません。</td></tr>`
+    : masters.map((c,i) => `
+      <tr>
+        <td style="text-align:center;">${i+1}</td>
+        <td>${esc(c.company)}</td>
+        <td>${esc(c.plant||'—')}</td>
+        <td class="col-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openClientMasterModal('${c.id}')">編集</button>
+          <button class="btn btn-danger btn-sm"    onclick="deleteClientMaster('${c.id}')">削除</button>
+        </td>
+      </tr>`).join('');
+}
+
+// ===========================
+// WORKER MODAL
+// ===========================
+function openWorkerModal(id) {
+  editingWorkerId = id || null;
+  document.getElementById('modal-worker-title').textContent = id ? '作業者を編集' : '作業者を追加';
+  if (id) {
+    const w = getWorkers().find(w=>w.id===id);
+    document.getElementById('inp-worker-name').value    = w.name    || '';
+    document.getElementById('inp-worker-company').value = w.company || '';
+    document.getElementById('inp-worker-role').value    = w.role    || '';
+    document.getElementById('inp-worker-carno').value   = w.carNo   || '';
+  } else {
+    document.getElementById('inp-worker-name').value    = '';
+    document.getElementById('inp-worker-company').value = '';
+    document.getElementById('inp-worker-role').value    = '';
+    document.getElementById('inp-worker-carno').value   = '';
+  }
+  openModal('modal-worker');
+}
+
+function saveWorker() {
+  const name = document.getElementById('inp-worker-name').value.trim();
+  if (!name) { alert('氏名を入力してください。'); return; }
+  const company = document.getElementById('inp-worker-company').value.trim();
+  const role    = document.getElementById('inp-worker-role').value.trim();
+  const carNo   = document.getElementById('inp-worker-carno').value.trim();
+  const workers = getWorkers();
+  if (editingWorkerId) {
+    const w = workers.find(w=>w.id===editingWorkerId);
+    if (w) { w.name=name; w.company=company; w.role=role; w.carNo=carNo; }
+  } else {
+    workers.push({id:uid(), name, company, role, carNo});
+  }
+  setWorkers(workers);
+  closeModal('modal-worker');
+  renderWorkers();
+}
+
+function deleteWorker(id) {
+  if (!confirm('この作業者を削除しますか？')) return;
+  setWorkers(getWorkers().filter(w=>w.id!==id));
+  renderWorkers();
+}
+
+function renderWorkers() {
+  const workers = getWorkers();
+  const tbody   = document.getElementById('worker-tbody');
+  tbody.innerHTML = workers.length === 0
+    ? `<tr><td colspan="6" class="empty-state">作業者が登録されていません。</td></tr>`
+    : workers.map((w,i) => `
+      <tr>
+        <td style="text-align:center;">${i+1}</td>
+        <td>${esc(w.name)}</td>
+        <td>${esc(w.company||'—')}</td>
+        <td>${esc(w.role||'—')}</td>
+        <td>${esc(w.carNo||'—')}</td>
+        <td class="col-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openWorkerModal('${w.id}')">編集</button>
+          <button class="btn btn-danger btn-sm"    onclick="deleteWorker('${w.id}')">削除</button>
+        </td>
+      </tr>`).join('');
+}
+
+// ===========================
+// HOURS TAB
+// ===========================
+function renderHours() {
+  const projects = getProjects();
+  const tbody    = document.getElementById('hours-tbody');
+  if (projects.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">工事がありません。</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = projects.map((proj, idx) => {
+    const act  = calcActual(proj);
+    const est  = proj.estimatedHours || 0;
+    const diff = est > 0 ? (est - act) : null;
+    const margin = est > 0 ? (((est-act)/est)*100).toFixed(1) : null;
+
+    const diffTxt = diff===null ? '<span style="color:#aaa">—</span>'
+      : diff>=0 ? `<span class="plus">+${diff}</span>` : `<span class="minus">${diff}</span>`;
+    const marginTxt = margin===null ? '<span style="color:#aaa">—</span>'
+      : parseFloat(margin)>=0 ? `<span style="color:#2e7d32">${margin}%</span>`
+                               : `<span style="color:#c62828">${margin}%</span>`;
+
+    return `<tr>
+      <td style="text-align:center;">${idx+1}</td>
+      <td class="text-left">${esc(proj.client||'—')}<br><small style="color:#888;">${esc(proj.plant||'')}</small></td>
+      <td class="text-left">${esc(proj.name)}</td>
+      <td>
+        <input type="number" class="hours-editable" value="${est||''}" min="0" step="0.5"
+          onchange="updateEstHours('${proj.id}',this.value)" placeholder="0">
+      </td>
+      <td>${act>0?act:'—'}</td>
+      <td>${marginTxt}</td>
+      <td>${diffTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateEstHours(id, val) {
+  const projects = getProjects();
+  const p = projects.find(p=>p.id===id);
+  if (p) p.estimatedHours = parseFloat(val)||0;
+  setProjects(projects);
+  renderHours();
+  renderSchedule();
+}
+
+// ===========================
+// MODAL HELPERS
+// ===========================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target===ov) ov.classList.remove('open'); });
+});
+
+// ===========================
+// CSV UTILITIES
+// ===========================
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { result.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCsv(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+    .filter(l => l.trim() !== '');
+  return lines.map(parseCsvLine);
+}
+
+function downloadCsv(filename, rows) {
+  const bom  = '\uFEFF'; // Excel用BOM
+  const text = bom + rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function readCsvFile(event, callback) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const rows = parseCsv(e.target.result);
+    callback(rows);
+    event.target.value = ''; // 同じファイルを再選択できるようリセット
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// --- 作業者 CSV ---
+function exportWorkersCsv() {
+  const workers = getWorkers();
+  const rows = [['氏名', '所属会社', '区分・役職', '車番']];
+  workers.forEach(w => rows.push([w.name, w.company || '', w.role || '', w.carNo || '']));
+  downloadCsv('作業者一覧.csv', rows);
+}
+
+function importWorkersCsv(event) {
+  readCsvFile(event, rows => {
+    // 1行目がヘッダーなら除く
+    const data = rows[0][0] === '氏名' ? rows.slice(1) : rows;
+    if (data.length === 0) { alert('データがありません'); return; }
+    const workers = getWorkers();
+    let added = 0;
+    data.forEach(r => {
+      const name = (r[0] || '').trim();
+      if (!name) return;
+      const dup = workers.find(w => w.name === name);
+      if (dup) { Object.assign(dup, { company: r[1]||'', role: r[2]||'', carNo: r[3]||'' }); }
+      else { workers.push({ id: uid(), name, company: r[1]||'', role: r[2]||'', carNo: r[3]||'' }); added++; }
+    });
+    setWorkers(workers);
+    renderWorkers();
+    alert(`取込完了：${added}件追加、${data.length - added}件更新`);
+  });
+}
+
+// --- 客先 CSV ---
+function exportClientsCsv() {
+  const clients = getClientMasters();
+  const rows = [['客先会社名', 'プラント・場所']];
+  clients.forEach(c => rows.push([c.company, c.plant || '']));
+  downloadCsv('客先一覧.csv', rows);
+}
+
+function importClientsCsv(event) {
+  readCsvFile(event, rows => {
+    const data = rows[0][0] === '客先会社名' ? rows.slice(1) : rows;
+    if (data.length === 0) { alert('データがありません'); return; }
+    const clients = getClientMasters();
+    let added = 0;
+    data.forEach(r => {
+      const company = (r[0] || '').trim();
+      const plant   = (r[1] || '').trim();
+      if (!company) return;
+      const dup = clients.find(c => c.company === company && c.plant === plant);
+      if (!dup) { clients.push({ id: uid(), company, plant }); added++; }
+    });
+    setClientMasters(clients);
+    renderClientMasters();
+    alert(`取込完了：${added}件追加`);
+  });
+}
+
+// --- 工事 CSV ---
+function exportProjectsCsv() {
+  const projects = getProjects();
+  const rows = [['客先会社', 'プラント', '工事名', '見積番号', '工種・作業概要', '見積工数', '備考', '登録者']];
+  projects.forEach(p => rows.push([
+    p.client || '', p.plant || '', p.name || '', p.quoteNo || '',
+    p.kouji || '', p.estimatedHours || '', p.remarks || '', p.registeredBy || ''
+  ]));
+
+  // ── 新規登録・編集用テンプレート行 ──
+  const pad = () => ['', '', '', '', '', '', '', ''];
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  rows.push([`# ↓【新規登録・編集はここに入力してください】`, ...pad().slice(1)]);
+  rows.push([`# 　列の順番: 客先会社 / プラント / 工事名(*必須) / 見積番号 / 工種・作業概要 / 見積工数 / 備考 / 登録者`, ...pad().slice(1)]);
+  rows.push([`# 　※ # で始まる行は取込時に自動で無視されます`, ...pad().slice(1)]);
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  for (let i = 0; i < 5; i++) rows.push(pad()); // 5行分の空白テンプレート
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+
+  // ── 参照情報（取込時は # 行として自動無視されます）──
+
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  rows.push([`# 参照情報（このブロックは取込時に無視されます）`, ...pad().slice(1)]);
+  rows.push([`# 出力日時: ${new Date().toLocaleString('ja-JP')}`, ...pad().slice(1)]);
+  rows.push([`# 対象月: ${currentYear}年${currentMonth}月`, ...pad().slice(1)]);
+
+  // 客先マスタ
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  rows.push(['# [客先マスタ一覧]', '', '', '', '', '', '']);
+  rows.push(['# 客先会社名', 'プラント・場所', '', '', '', '', '']);
+  getClientMasters().forEach(c =>
+    rows.push([`# ${c.company}`, c.plant || '', '', '', '', '', ''])
+  );
+
+  // 作業者マスタ
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  rows.push(['# [作業者マスタ一覧]', '', '', '', '', '', '']);
+  rows.push(['# 氏名', '所属会社', '区分・役職', '', '', '', '']);
+  getWorkers().forEach(w =>
+    rows.push([`# ${w.name}`, w.company || '', w.role || '', '', '', '', ''])
+  );
+
+  rows.push([`#${'─'.repeat(40)}`, ...pad().slice(1)]);
+  downloadCsv(`工事一覧_${currentYear}${String(currentMonth).padStart(2,'0')}.csv`, rows);
+}
+
+function importProjectsCsv(event) {
+  readCsvFile(event, rows => {
+    const stripped = rows[0][0] === '客先会社' ? rows.slice(1) : rows;
+    // # で始まる参照情報コメント行・空行を除外
+    const header = stripped.filter(r => !String(r[0] || '').trimStart().startsWith('#'));
+    if (header.length === 0) { alert('データがありません'); return; }
+    const projects = getProjects();
+    let added = 0;
+    header.forEach(r => {
+      const name = (r[2] || '').trim();
+      if (!name) return;
+      const dup = projects.find(p => p.name === name && (p.client||'') === (r[0]||'').trim());
+      if (dup) {
+        Object.assign(dup, {
+          client: r[0]||'', plant: r[1]||'', quoteNo: r[3]||'',
+          kouji: r[4]||'', estimatedHours: parseFloat(r[5])||0, remarks: r[6]||''
+        });
+      } else {
+        projects.push({
+          id: uid(), client: r[0]||'', plant: r[1]||'', name,
+          quoteNo: r[3]||'', kouji: r[4]||'', estimatedHours: parseFloat(r[5])||0,
+          remarks: r[6]||'', registeredBy: r[7] || (currentUser ? currentUser.name : ''),
+          schedule: {}
+        });
+        added++;
+      }
+    });
+    setProjects(projects);
+    renderSchedule();
+    alert(`取込完了：${added}件追加、${header.length - added}件更新`);
+  });
+}
+
+// ===========================
+// PRINT
+// ===========================
+function printSchedule() { renderSchedule(); window.print(); }
+
+// ===========================
+// INIT
+// ===========================
+async function init() {
+  initFileData();
+  if (fbConfigJson) {
+    try {
+      const cfg = parseFirebaseConfig(fbConfigJson);
+      await initFirebase(cfg);
+      await loadFromCloud();
+    } catch(e) {
+      console.error('Firebase初期化エラー:', e);
+      updateFileStatus('disconnected');
+    }
+  }
+  renderAll();
+  // セッション復元を試みる（前回ログイン済みならそのまま）
+  const restored = restoreSession();
+  if (!restored) {
+    showLoginOverlay();
+  }
+}
+init();
+
+// ===========================
+// 日次予定表 Excel出力
+// ===========================
+function openDailyReportModal() {
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth()+1, d = today.getDate();
+  const inMonth = (y === currentYear && m === currentMonth);
+  const defDate = inMonth
+    ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    : `${currentYear}-${String(currentMonth).padStart(2,'0')}-01`;
+  document.getElementById('inp-daily-date').value = defDate;
+  // 前回の注意書きを復元
+  document.getElementById('inp-daily-notice').value = localStorage.getItem('dailyNotice') || '';
+  openModal('modal-daily-report');
+}
+
+async function exportDailyReport() {
+  const dateStr = document.getElementById('inp-daily-date').value;
+  const notice  = document.getElementById('inp-daily-notice').value.trim();
+  if (!dateStr) { alert('日付を選択してください'); return; }
+  localStorage.setItem('dailyNotice', notice);
+  closeModal('modal-daily-report');
+  try {
+    await generateDailyReport(dateStr, notice);
+  } catch(e) {
+    alert('Excel出力エラー: ' + e.message);
+    console.error(e);
+  }
+}
+
+async function generateDailyReport(dateStr, notice) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const dayNames = ['日','月','火','水','木','金','土'];
+  const dow = new Date(year, month-1, day).getDay();
+  const dayName = dayNames[dow];
+
+  const allProjects = getMonthData(year, month).projects;
+  const workers = getWorkers();
+  const wMap = {};
+  workers.forEach(w => wMap[w.id] = w);
+
+  // その日にスケジュールがある工事
+  const dayProjects = allProjects.filter(p => {
+    const e = (p.schedule||{})[dateStr];
+    return e && (e.status!=='none' || (e.workers&&e.workers.length) || e.workContent || e.note || e.memo);
+  });
+
+  // 本日未配置の作業者
+  const assignedIds = new Set();
+  dayProjects.forEach(p => ((p.schedule[dateStr]||{}).workers||[]).forEach(id => assignedIds.add(id)));
+  const offWorkers = workers.filter(w => !assignedIds.has(w.id));
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = '工事管理ツール';
+  const ws = wb.addWorksheet('工事予定表');
+
+  ws.pageSetup = {
+    paperSize: 9, orientation: 'portrait',
+    fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+    margins: { left:0.35, right:0.35, top:0.35, bottom:0.35, header:0.2, footer:0.2 }
+  };
+
+  const NW = 10; // 施工者列数
+  const colDefs = [
+    {width:5.5}, {width:23}, {width:14}, {width:4}, {width:4}
+  ];
+  for (let i=0;i<NW;i++) colDefs.push({width:3.2});
+  colDefs.push({width:7}, {width:11});
+  ws.columns = colDefs;
+
+  // 列番号→英字変換
+  const cl = n => n<=26 ? String.fromCharCode(64+n)
+    : String.fromCharCode(64+Math.floor((n-1)/26)) + String.fromCharCode(64+((n-1)%26)+1);
+  const CA=1,CB=2,CC=3,CD=4,CE=5,CWS=6,CWE=6+NW-1,CP=6+NW,CQ=6+NW+1,CTOT=CQ;
+  const lastCol = cl(CTOT);
+
+  // スタイル定数
+  const bt = {style:'thin',  color:{argb:'FF000000'}};
+  const bm = {style:'medium',color:{argb:'FF000000'}};
+  const ba  = {top:bt,left:bt,bottom:bt,right:bt};
+  const baM = {top:bm,left:bm,bottom:bm,right:bm};
+  const hFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD8D8D8'}};
+  const fN  = {name:'ＭＳ ゴシック',size:9};
+  const fB  = {name:'ＭＳ ゴシック',size:9,bold:true};
+  const fT  = {name:'ＭＳ ゴシック',size:15,bold:true,underline:true};
+  const fSub= {name:'ＭＳ ゴシック',size:8,color:{argb:'FFCC0000'},bold:true};
+  const fH  = {name:'ＭＳ ゴシック',size:8,bold:true};
+  const aC  = {horizontal:'center',vertical:'middle',wrapText:true};
+  const aL  = {horizontal:'left',  vertical:'middle',wrapText:true};
+  const aV  = {textRotation:255,   horizontal:'center',vertical:'middle'};
+
+  const sc = (cell, val, font, align, fill, border) => {
+    cell.value  = val;
+    cell.font   = font;
+    cell.alignment = align || aC;
+    if (fill)   cell.fill   = fill;
+    if (border !== false) cell.border = border || ba;
+  };
+
+  let r = 1;
+
+  // ── タイトル行 ──
+  ws.mergeCells(`A${r}:${lastCol}${r}`);
+  sc(ws.getCell(`A${r}`), `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`, fT, aC, null, false);
+  ws.getRow(r).height = 30; r++;
+
+  // ── 注意書き行 ──
+  ws.mergeCells(`A${r}:${lastCol}${r}`);
+  sc(ws.getCell(`A${r}`), notice||'', fSub, aC, null, false);
+  ws.getRow(r).height = 14; r++;
+
+  // ── ヘッダー2行 ──
+  const hr1=r, hr2=r+1;
+  ws.mergeCells(`A${hr1}:A${hr2}`);
+  sc(ws.getCell(`A${hr1}`), '現\n場', fH, aV, hFill);
+
+  sc(ws.getCell(`B${hr1}`), '(客先)　【見積No.】', fH, aC, hFill);
+  sc(ws.getCell(`B${hr2}`), '工事名称',            fH, aC, hFill);
+
+  ws.mergeCells(`C${hr1}:C${hr2}`);
+  sc(ws.getCell(`C${hr1}`), '内容・備考', fH, aC, hFill);
+
+  ws.mergeCells(`D${hr1}:D${hr2}`);
+  sc(ws.getCell(`D${hr1}`), '担\n当\n者', fH, aV, hFill);
+
+  ws.mergeCells(`E${hr1}:E${hr2}`);
+  sc(ws.getCell(`E${hr1}`), '責\n任\n者', fH, aV, hFill);
+
+  ws.mergeCells(`${cl(CWS)}${hr1}:${cl(CWE)}${hr1}`);
+  sc(ws.getCell(`${cl(CWS)}${hr1}`), '施　工　者', fH, aC, hFill);
+  for (let i=0;i<NW;i++) sc(ws.getCell(`${cl(CWS+i)}${hr2}`), '', fH, aC, hFill);
+
+  ws.mergeCells(`${cl(CP)}${hr1}:${cl(CP)}${hr2}`);
+  sc(ws.getCell(`${cl(CP)}${hr1}`), '車両', fH, aC, hFill);
+
+  sc(ws.getCell(`${cl(CQ)}${hr1}`), '工程',   fH, aC, hFill);
+  sc(ws.getCell(`${cl(CQ)}${hr2}`), '作業時間', fH, aC, hFill);
+
+  ws.getRow(hr1).height = 30;
+  ws.getRow(hr2).height = 15;
+  r += 2;
+
+  // ── 工事行を出力 ──
+  const addRow = (proj, ent, isEmpty) => {
+    const ra=r, rb=r+1;
+    const entW = (ent&&ent.workers)||[];
+    const workC = (ent&&(ent.workContent||ent.note))||'';
+    const memo  = (ent&&ent.memo)||'';
+    const contentText = [workC, memo].filter(Boolean).join('\n');
+    const koujiStr = proj&&proj.kouji ? `＜${proj.kouji}＞` : '';
+    const fullContent = [contentText, koujiStr].filter(Boolean).join('\n');
+
+    // 始/継/完 判定
+    let phase = '継';
+    if (proj && proj.schedule) {
+      const sd = Object.keys(proj.schedule)
+        .filter(k=>((proj.schedule[k]||{}).workers||[]).length>0).sort();
+      if (!sd.length || sd[0]===dateStr) phase = '始';
+      else if (proj.completed && sd[sd.length-1]===dateStr) phase = '完';
+    }
+    if (isEmpty) phase = null;
+
+    const clientAbbr = proj ? (proj.client||'').slice(0,6) : '';
+    const plantStr   = proj&&proj.plant ? `(${proj.plant})` : '';
+    const quoteStr   = proj&&proj.quoteNo ? `【${proj.quoteNo}】` : '【　　　　　　　　】';
+    const vNos       = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
+
+    // A 現場
+    ws.mergeCells(`A${ra}:A${rb}`);
+    sc(ws.getCell(`A${ra}`), clientAbbr, fN, aV);
+
+    // B 客先・工事名
+    sc(ws.getCell(`B${ra}`), isEmpty ? '【　　　　　　　　　　　　　　】' : `${plantStr}　${quoteStr}`, fN, aL);
+    sc(ws.getCell(`B${rb}`), (proj&&proj.name)||'', fN, aL);
+
+    // C 内容・備考
+    ws.mergeCells(`C${ra}:C${rb}`);
+    sc(ws.getCell(`C${ra}`), fullContent, fN, aL);
+
+    // D 担当者
+    ws.mergeCells(`D${ra}:D${rb}`);
+    sc(ws.getCell(`D${ra}`), (proj&&proj.registeredBy)||'', fN, aV);
+
+    // E 責任者
+    ws.mergeCells(`E${ra}:E${rb}`);
+    sc(ws.getCell(`E${ra}`), '', fN, aV);
+
+    // 施工者列
+    for (let i=0;i<NW;i++) {
+      ws.mergeCells(`${cl(CWS+i)}${ra}:${cl(CWS+i)}${rb}`);
+      const w = i<entW.length ? wMap[entW[i]] : null;
+      sc(ws.getCell(`${cl(CWS+i)}${ra}`), w ? w.name.replace(/[\s　]+/g,'') : '', fN, aV);
+    }
+
+    // P 車両
+    ws.mergeCells(`${cl(CP)}${ra}:${cl(CP)}${rb}`);
+    sc(ws.getCell(`${cl(CP)}${ra}`), vNos, fN, aC);
+
+    // Q 工程（始・継・完をリッチテキストで対象を太字）
+    const phRich = phase ? {richText:[
+      {text:'始', font:{...fN, bold:phase==='始', underline:phase==='始'}},
+      {text:'・', font:fN},
+      {text:'継', font:{...fN, bold:phase==='継', underline:phase==='継'}},
+      {text:'・', font:fN},
+      {text:'完', font:{...fN, bold:phase==='完', underline:phase==='完'}},
+    ]} : '始・継・完';
+    const kCa = ws.getCell(`${cl(CQ)}${ra}`);
+    kCa.value = phRich; kCa.alignment = aC; kCa.border = ba;
+
+    const kCb = ws.getCell(`${cl(CQ)}${rb}`);
+    sc(kCb, '　　　～　　　', fN, aC);
+
+    ws.getRow(ra).height = 40;
+    ws.getRow(rb).height = 16;
+    r += 2;
+  };
+
+  // 実データ行
+  dayProjects.forEach(proj => addRow(proj, (proj.schedule||{})[dateStr], false));
+
+  // 空行（計16行になるまで補填）
+  const emptyNeeded = Math.max(0, 16 - dayProjects.length);
+  for (let i=0;i<emptyNeeded;i++) addRow(null, null, true);
+
+  // 休（未配置作業者）
+  ws.mergeCells(`A${r}:${lastCol}${r}`);
+  const offNames = offWorkers.map(w=>w.name).join('　');
+  sc(ws.getCell(`A${r}`), `休　${offNames}`, fB, aL);
+  ws.getRow(r).height = 18;
+
+  // ダウンロード
+  const buf  = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {href:url,
+    download:`工事予定表_${year}${String(month).padStart(2,'0')}${String(day).padStart(2,'0')}.xlsx`});
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+</script>
+</body>
+</html>

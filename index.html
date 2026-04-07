@@ -456,6 +456,14 @@ tr.project-row:hover .row-btns { display: flex; }
         <label>工事名 *</label>
         <input type="text" id="inp-proj-name" placeholder="例: 電気設備工事">
       </div>
+      <div class="form-group" style="max-width:90px;">
+        <label>工事区分</label>
+        <select id="inp-proj-type" style="width:100%;padding:7px 6px;border:1px solid #ccc;border-radius:4px;font-size:13px;font-family:inherit;">
+          <option value="">---</option>
+          <option value="定修">定修</option>
+          <option value="日常">日常</option>
+        </select>
+      </div>
       <div class="form-group" style="max-width:150px;">
         <label>見積番号</label>
         <input type="text" id="inp-proj-quoteno" placeholder="例: MC-0804-001">
@@ -1488,8 +1496,8 @@ function buildRow(proj, idx, days, wMap) {
       ${esc(proj.client||'—')}<br>
       <span style="font-size:10px;color:#666;">${esc(proj.plant||'')}</span>
     </td>
-    <td class="sticky-left sl-name text-left overflow-ellipsis" title="${esc(proj.name)}${proj.quoteNo ? '\n見積番号: '+proj.quoteNo : ''}">
-      ${esc(proj.name)}
+    <td class="sticky-left sl-name text-left overflow-ellipsis" title="${proj.projType?'('+proj.projType+') ':''}${esc(proj.name)}${proj.quoteNo ? '\n見積番号: '+proj.quoteNo : ''}">
+      ${proj.projType ? `<span style="font-size:10px;font-weight:bold;color:#555;margin-right:3px;">(${esc(proj.projType)})</span>` : ''}${esc(proj.name)}
       ${proj.quoteNo ? `<br><small style="color:#888;font-size:10px;">${esc(proj.quoteNo)}</small>` : ''}
     </td>
     <td class="sticky-left sl-kouji text-left text-sm overflow-ellipsis" title="${esc(proj.kouji||'')}">${esc(proj.kouji||'')}</td>
@@ -1606,8 +1614,9 @@ function openProjectModal(id) {
     const p = getProject(id);
     cSel.value = p.client || '';
     refreshPlantSelect(p.client, p.plant);
-    document.getElementById('inp-proj-name').value          = p.name    || '';
-    document.getElementById('inp-proj-quoteno').value       = p.quoteNo || '';
+    document.getElementById('inp-proj-name').value          = p.name     || '';
+    document.getElementById('inp-proj-type').value          = p.projType || '';
+    document.getElementById('inp-proj-quoteno').value       = p.quoteNo  || '';
     document.getElementById('inp-proj-kouji').value         = p.kouji   || '';
     document.getElementById('inp-proj-hours').value         = p.estimatedHours || '';
     document.getElementById('inp-proj-registered-by').value = p.registeredBy || '';
@@ -1615,6 +1624,7 @@ function openProjectModal(id) {
     cSel.value = '';
     refreshPlantSelect('', '');
     document.getElementById('inp-proj-name').value          = '';
+    document.getElementById('inp-proj-type').value          = '';
     document.getElementById('inp-proj-quoteno').value       = '';
     document.getElementById('inp-proj-kouji').value         = '';
     document.getElementById('inp-proj-hours').value         = '';
@@ -1644,17 +1654,18 @@ function saveProject() {
   if (!name) { alert('工事名を入力してください。'); return; }
   const client = document.getElementById('inp-proj-client').value;
   const plant  = document.getElementById('inp-proj-plant').value;
-  const quoteNo = document.getElementById('inp-proj-quoteno').value.trim();
-  const kouji   = document.getElementById('inp-proj-kouji').value.trim();
-  const hrs     = parseFloat(document.getElementById('inp-proj-hours').value) || 0;
+  const projType = document.getElementById('inp-proj-type').value;
+  const quoteNo  = document.getElementById('inp-proj-quoteno').value.trim();
+  const kouji    = document.getElementById('inp-proj-kouji').value.trim();
+  const hrs      = parseFloat(document.getElementById('inp-proj-hours').value) || 0;
 
   const registeredBy = currentUser ? currentUser.name : '';
   const projects = getProjects();
   if (editingProjectId) {
     const p = projects.find(p=>p.id===editingProjectId);
-    if (p) Object.assign(p, {client, plant, name, quoteNo, kouji, estimatedHours:hrs});
+    if (p) Object.assign(p, {client, plant, name, projType, quoteNo, kouji, estimatedHours:hrs});
   } else {
-    projects.push({id:uid(), client, plant, name, quoteNo, kouji, estimatedHours:hrs, schedule:{}, remarks:'', registeredBy});
+    projects.push({id:uid(), client, plant, name, projType, quoteNo, kouji, estimatedHours:hrs, schedule:{}, remarks:'', registeredBy});
   }
   setProjects(projects);
   closeModal('modal-project');
@@ -2311,6 +2322,17 @@ async function generateDailyReport(dateStr, notice) {
   ws.getCell('A1').value = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
   ws.getCell('A2').value = notice || '';
 
+  // ヘッダーラベル修正（テンプレートの「現場」→「客先」、「(客先)」→「(現場)」）
+  for (let r = 1; r <= 4; r++) {
+    ws.getRow(r).eachCell(cell => {
+      if (typeof cell.value === 'string') {
+        if (cell.value === '現場')           cell.value = '客先';
+        else if (cell.value === '(客先)')    cell.value = '(現場)';
+        else if (cell.value === '（客先）')  cell.value = '（現場）';
+      }
+    });
+  }
+
   // データ行定義（16ペア）
   const ENTRY_ROWS = [
     [5,6],[7,8],[9,10],[11,12],[13,14],[15,16],
@@ -2363,7 +2385,7 @@ async function generateDailyReport(dateStr, notice) {
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
       ws.getCell(`Q${ra}`).font   = Object.assign({}, ws.getCell(`Q${ra}`).font, {name:'HGPゴシックE', size:9, bold:true});
       ws.getCell(`AB${ra}`).value = vNos;
-      ws.getCell(`B${rb}`).value  = proj.name || '';
+      ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
       // 始継完: テンプレートのプレーンテキストをそのまま使用（richTextはセル溢れの原因のため使わない）
     } catch(e){}
 

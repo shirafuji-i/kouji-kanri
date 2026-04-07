@@ -114,6 +114,7 @@ tr.project-row:hover td:not(.confirmed):not(.unconfirmed) { background: #f5f7ff;
 
 /* 状態列（完工・翌月持越） */
 .col-status { min-width: 78px; text-align: left !important; vertical-align: middle !important; font-size: 11px; padding: 2px 4px !important; }
+.col-reset  { width: 48px; min-width: 48px; text-align: center !important; vertical-align: middle !important; }
 .status-check { display: block; cursor: pointer; white-space: nowrap; padding: 1px 0; user-select: none; }
 .status-check input { cursor: pointer; margin-right: 3px; }
 
@@ -274,6 +275,44 @@ tr.project-row:hover .row-btns { display: flex; }
 .btn-csv-import { background: #1565c0; color: white; }
 .csv-hint { font-size: 11px; color: #888; margin-top: 5px; }
 .csv-section { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* VIEW MODE TOGGLE BUTTON */
+.btn-view-mode {
+  background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+  color: white; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 12px;
+  white-space: nowrap;
+}
+.btn-view-mode:hover { background: rgba(255,255,255,0.35); }
+.btn-view-mode.mobile-active { background: rgba(255,165,0,0.5); border-color: rgba(255,200,0,0.7); }
+
+/* MOBILE WEEK NAV */
+.mobile-week-nav {
+  display: none; align-items: center; gap: 10px; padding: 6px 12px;
+  background: #dde8f8; border-bottom: 1px solid #b3c8f0; font-size: 13px;
+}
+.mobile-week-nav.show { display: flex; }
+.mobile-week-nav button {
+  background: var(--accent); color: white; border: none;
+  padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;
+}
+.mobile-week-nav button:hover { background: #1d4ed8; }
+.mobile-week-nav button:disabled { background: #999; cursor: default; }
+#week-label { font-weight: bold; flex: 1; text-align: center; color: #1e3a5f; }
+
+/* MOBILE VIEW overrides */
+.schedule-wrapper.mobile-view .sl-client { display: none; }
+.schedule-wrapper.mobile-view .sl-kouji  { display: none; }
+.schedule-wrapper.mobile-view .sl-no     { width: 40px; min-width: 40px; }
+.schedule-wrapper.mobile-view .sl-name   { left: 40px; min-width: 110px; max-width: 130px; }
+.schedule-wrapper.mobile-view .avail-label { width: 150px; }
+.schedule-wrapper.mobile-view .col-est,
+.schedule-wrapper.mobile-view .col-act,
+.schedule-wrapper.mobile-view .col-margin,
+.schedule-wrapper.mobile-view .col-remarks { display: none; }
+.schedule-wrapper.mobile-view .col-day { width: 22px; min-width: 22px; font-size: 10px; }
+.schedule-wrapper.mobile-view .col-total { width: 34px; font-size: 10px; }
+.schedule-wrapper.mobile-view .col-status { min-width: 58px; font-size: 10px; }
+.schedule-wrapper.mobile-view .col-reset { width: 36px; min-width: 36px; }
 </style>
 </head>
 <body>
@@ -291,6 +330,7 @@ tr.project-row:hover .row-btns { display: flex; }
   <button class="btn-cloud" onclick="openCloudSettings()" title="クラウド同期設定（PC・携帯共有）">☁ クラウド設定</button>
   <button class="btn-file" onclick="openDataFile()" title="ローカルJSONファイルを開く（PC専用）">📂 PC用</button>
   <button class="btn-file" onclick="newDataFile()" title="新しいJSONファイルを作成（PC専用）">＋ 新規</button>
+  <button id="btn-view-mode" class="btn-view-mode" onclick="toggleViewMode()" title="スマホ/PC表示切替">📱 スマホ</button>
   <div id="user-badge" class="user-badge" style="display:none;">
     <div class="user-avatar" id="user-avatar"></div>
     <span id="user-name-label"></span>
@@ -310,6 +350,12 @@ tr.project-row:hover .row-btns { display: flex; }
 <!-- TAB: 工程管理 -->
 <div class="tab-content active" id="tab-schedule">
   <div class="print-header" id="print-title"></div>
+  <!-- モバイル週ナビ -->
+  <div class="mobile-week-nav" id="mobile-week-nav">
+    <button id="btn-prev-week" onclick="changeWeek(-1)">◀ 前週</button>
+    <span id="week-label"></span>
+    <button id="btn-next-week" onclick="changeWeek(1)">次週 ▶</button>
+  </div>
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openProjectModal()">＋ 工事追加</button>
     <button class="btn btn-csv-export btn" onclick="exportProjectsCsv()">↓ CSV出力</button>
@@ -541,6 +587,23 @@ tr.project-row:hover .row-btns { display: flex; }
         <input type="email" id="inp-login-email" placeholder="登録済みのメールアドレス"
                onkeydown="if(event.key==='Enter')doLogin()">
       </div>
+      <div class="form-group" style="text-align:left;">
+        <label style="font-size:12px;font-weight:bold;color:#555;">表示モード</label>
+        <div style="display:flex;gap:12px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+            <input type="radio" name="login-view-mode" value="auto" id="vm-auto" checked>
+            自動（画面幅で判定）
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+            <input type="radio" name="login-view-mode" value="mobile" id="vm-mobile">
+            📱 スマホ
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+            <input type="radio" name="login-view-mode" value="pc" id="vm-pc">
+            🖥 PC
+          </label>
+        </div>
+      </div>
       <p class="login-error" id="login-error"></p>
       <button class="btn-login" onclick="doLogin()">ログイン</button>
       <p class="login-setup-link" id="login-setup-link" onclick="showInitSetup()" style="display:none;">
@@ -770,6 +833,8 @@ let currentYear  = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let currentTab   = 'schedule';
 let clientFilter = '';
+let viewMode        = localStorage.getItem('view_mode') || (window.innerWidth < 768 ? 'mobile' : 'pc');
+let mobileWeekStart = 1; // 週表示の開始日（1〜）
 
 let editingProjectId    = null;
 let editingWorkerId     = null;
@@ -1097,6 +1162,16 @@ function showLoginOverlay() {
   // 前回ログインしたメールアドレスを自動入力
   const savedEmail = localStorage.getItem('last_login_email') || '';
   document.getElementById('inp-login-email').value = savedEmail;
+  // 保存済みの表示モードをラジオに反映
+  const savedMode = localStorage.getItem('view_mode');
+  const vmAuto    = document.getElementById('vm-auto');
+  const vmMobile  = document.getElementById('vm-mobile');
+  const vmPc      = document.getElementById('vm-pc');
+  if (vmAuto && vmMobile && vmPc) {
+    vmAuto.checked   = !savedMode;
+    vmMobile.checked = savedMode === 'mobile';
+    vmPc.checked     = savedMode === 'pc';
+  }
 }
 
 function hideLoginOverlay() {
@@ -1113,6 +1188,32 @@ function showLoginForm() {
   document.getElementById('login-form').style.display = 'block';
 }
 
+function applyLoginViewMode() {
+  // ログイン画面の表示モード選択を適用
+  const radios = document.querySelectorAll('input[name="login-view-mode"]');
+  let selected = 'auto';
+  radios.forEach(r => { if (r.checked) selected = r.value; });
+  if (selected === 'auto') {
+    const auto = window.innerWidth < 768 ? 'mobile' : 'pc';
+    viewMode = auto;
+    localStorage.setItem('view_mode', auto);
+  } else {
+    viewMode = selected;
+    localStorage.setItem('view_mode', selected);
+  }
+  // モバイル時は週表示の初期位置を設定
+  if (viewMode === 'mobile') {
+    const today = new Date();
+    if (today.getFullYear() === currentYear && today.getMonth() + 1 === currentMonth) {
+      const day = today.getDate();
+      mobileWeekStart = Math.max(1, day - (day - 1) % 7);
+    } else {
+      mobileWeekStart = 1;
+    }
+  }
+  updateViewModeUI();
+}
+
 function doLogin() {
   const email = document.getElementById('inp-login-email').value.trim().toLowerCase();
   const errEl = document.getElementById('login-error');
@@ -1122,6 +1223,7 @@ function doLogin() {
   const users = getSysUsers();
   const user  = users.find(u => u.email.toLowerCase() === email);
   if (!user) { errEl.textContent = '登録されていないメールアドレスです'; return; }
+  applyLoginViewMode();
   setCurrentUser(user);
   updateLastActivity();
   hideLoginOverlay();
@@ -1296,6 +1398,9 @@ function changeMonth(delta) {
   if (currentMonth > 12) { currentMonth = 1; currentYear++; }
   if (currentMonth < 1)  { currentMonth = 12; currentYear--; }
   clientFilter = '';
+  // モバイル週表示：月切替時は月初から開始
+  mobileWeekStart = 1;
+  if (viewMode === 'mobile') updateWeekNav();
   renderAll();
 }
 
@@ -1354,8 +1459,25 @@ function renderSchedule() {
   const allProjects = getProjects();
   const days = daysInMonth(currentYear, currentMonth);
   const DOW  = ['日','月','火','水','木','金','土'];
-  // total cols = 4 sticky + days + total + est + act + margin + remarks + status
-  const COLS = 4 + days + 6;
+
+  // 表示する日の配列を決定（モバイルは週表示、PCは全日表示）
+  let visibleDays;
+  if (viewMode === 'mobile') {
+    const start = Math.max(1, Math.min(mobileWeekStart, days));
+    const end   = Math.min(start + 6, days);
+    visibleDays = [];
+    for (let d = start; d <= end; d++) visibleDays.push(d);
+  } else {
+    visibleDays = [];
+    for (let d = 1; d <= days; d++) visibleDays.push(d);
+  }
+
+  // スケジュールラッパーにmobile-viewクラスを付与/解除
+  const wrapper = document.querySelector('.schedule-wrapper');
+  wrapper.classList.toggle('mobile-view', viewMode === 'mobile');
+
+  // total cols = 4 sticky + visibleDays + total + est + act + margin + remarks + status + reset
+  const COLS = 4 + visibleDays.length + 6;
 
   // THEAD
   const thead = document.getElementById('schedule-thead');
@@ -1364,7 +1486,7 @@ function renderSchedule() {
   h1 += `<th class="sticky-left sl-client text-left overflow-ellipsis" rowspan="2">客先</th>`;
   h1 += `<th class="sticky-left sl-name  text-left overflow-ellipsis" rowspan="2">工事名</th>`;
   h1 += `<th class="sticky-left sl-kouji text-left overflow-ellipsis text-sm" rowspan="2">工種</th>`;
-  for (let d=1; d<=days; d++) {
+  for (const d of visibleDays) {
     const ds  = dateStr(currentYear, currentMonth, d);
     const dow = dayOfWeek(currentYear, currentMonth, d);
     const cls = isHoliday(ds)||dow===0 ? 'th-sun' : (dow===6?'th-sat':'');
@@ -1376,10 +1498,11 @@ function renderSchedule() {
   h1 += `<th class="col-margin" rowspan="2">粗利率<br>(%)</th>`;
   h1 += `<th class="col-remarks" rowspan="2">備考</th>`;
   h1 += `<th class="col-status no-print" rowspan="2">状態</th>`;
+  h1 += `<th class="col-reset no-print" rowspan="2">リセット</th>`;
   h1 += '</tr>';
 
   let h2 = '<tr>';
-  for (let d=1; d<=days; d++) {
+  for (const d of visibleDays) {
     const ds  = dateStr(currentYear, currentMonth, d);
     const dow = dayOfWeek(currentYear, currentMonth, d);
     const cls = isHoliday(ds)||dow===0 ? 'th-sun' : (dow===6?'th-sat':'');
@@ -1404,8 +1527,8 @@ function renderSchedule() {
 
   let rows = '';
   if (clientFilter) {
-    projects.forEach((proj, idx) => { rows += buildRow(proj, idx, days, wMap); });
-    rows += buildTeishuSummaryRows(projects, days);
+    projects.forEach((proj, idx) => { rows += buildRow(proj, idx, visibleDays, wMap); });
+    rows += buildTeishuSummaryRows(projects, visibleDays);
   } else {
     // Stable grouping by client
     const seen = {}, groups = [];
@@ -1419,17 +1542,17 @@ function renderSchedule() {
       rows += `<tr class="group-header-row${gidx===0?' first-group':''}">
         <td colspan="${COLS}">🏢 ${esc(g.client)}</td>
       </tr>`;
-      g.items.forEach(proj => { rows += buildRow(proj, gi++, days, wMap); });
-      rows += buildTeishuSummaryRows(g.items, days);
+      g.items.forEach(proj => { rows += buildRow(proj, gi++, visibleDays, wMap); });
+      rows += buildTeishuSummaryRows(g.items, visibleDays);
     });
   }
-  rows += buildAvailableRow(allProjects, days, workers, wMap);
-  rows += buildRestRow(days, workers);
+  rows += buildAvailableRow(allProjects, visibleDays, workers, wMap);
+  rows += buildRestRow(visibleDays, workers);
   tbody.innerHTML = rows;
 }
 
 // 同プラント×定修の合算サマリ行を生成
-function buildTeishuSummaryRows(groupProjects, days) {
+function buildTeishuSummaryRows(groupProjects, visibleDays) {
   // 定修かつプラントが設定されている工事をプラント別に集計
   const byPlant = {};
   groupProjects.filter(p => p.projType === '定修').forEach(p => {
@@ -1454,7 +1577,7 @@ function buildTeishuSummaryRows(groupProjects, days) {
         ? `<span style="color:#2e7d32;font-weight:bold;">${margin}%</span>`
         : `<span style="color:#c62828;font-weight:bold;">${margin}%</span>`;
 
-    const emptyCells = Array(days).fill('<td class="col-day" style="background:#eaf4fb;"></td>').join('');
+    const emptyCells = Array(visibleDays.length).fill('<td class="col-day" style="background:#eaf4fb;"></td>').join('');
 
     html += `
     <tr class="teishu-summary-row">
@@ -1468,16 +1591,17 @@ function buildTeishuSummaryRows(groupProjects, days) {
       <td class="col-margin" style="background:#eaf4fb;border-top:2px solid #90caf9;">${marginTxt}</td>
       <td class="col-remarks" style="background:#eaf4fb;border-top:2px solid #90caf9;"></td>
       <td class="col-status no-print" style="background:#eaf4fb;border-top:2px solid #90caf9;"></td>
+      <td class="col-reset no-print"  style="background:#eaf4fb;border-top:2px solid #90caf9;"></td>
     </tr>`;
   });
   return html;
 }
 
-function buildAvailableRow(allProjects, days, workers, wMap) {
+function buildAvailableRow(allProjects, visibleDays, workers, wMap) {
   if (workers.length === 0) return '';
 
   let cells = '';
-  for (let d = 1; d <= days; d++) {
+  for (const d of visibleDays) {
     const ds  = dateStr(currentYear, currentMonth, d);
     const dow = dayOfWeek(currentYear, currentMonth, d);
     const hol = isHoliday(ds);
@@ -1503,9 +1627,10 @@ function buildAvailableRow(allProjects, days, workers, wMap) {
     cells += `<td class="col-day avail-cell ${baseCls}">${content}</td>`;
   }
 
+  const stickyColspan = viewMode === 'mobile' ? 2 : 4;
   return `
     <tr class="avail-row no-print">
-      <td colspan="4" class="avail-label sticky-left sl-no" style="left:0;">未割当<br>作業員</td>
+      <td colspan="${stickyColspan}" class="avail-label sticky-left sl-no" style="left:0;">未割当<br>作業員</td>
       ${cells}
       <td class="col-total avail-cell"></td>
       <td class="col-est avail-cell"></td>
@@ -1513,13 +1638,14 @@ function buildAvailableRow(allProjects, days, workers, wMap) {
       <td class="col-margin avail-cell"></td>
       <td class="col-remarks avail-cell"></td>
       <td class="col-status no-print avail-cell"></td>
+      <td class="col-reset no-print avail-cell"></td>
     </tr>`;
 }
 
-function buildRestRow(days, workers) {
+function buildRestRow(visibleDays, workers) {
   const restData = getRestData();
   let cells = '';
-  for (let d = 1; d <= days; d++) {
+  for (const d of visibleDays) {
     const ds  = dateStr(currentYear, currentMonth, d);
     const dow = dayOfWeek(currentYear, currentMonth, d);
     const hol = isHoliday(ds);
@@ -1534,9 +1660,10 @@ function buildRestRow(days, workers) {
     }
     cells += `<td class="col-day rest-cell ${baseCls}" style="cursor:pointer;" onclick="openRestModal('${ds}')">${content}</td>`;
   }
+  const stickyColspan = viewMode === 'mobile' ? 2 : 4;
   return `
     <tr class="rest-row">
-      <td colspan="4" class="sticky-left sl-no" style="left:0;background:#fce4ec;font-weight:bold;font-size:11px;color:#880e4f;text-align:center;">休み</td>
+      <td colspan="${stickyColspan}" class="sticky-left sl-no" style="left:0;background:#fce4ec;font-weight:bold;font-size:11px;color:#880e4f;text-align:center;">休み</td>
       ${cells}
       <td class="col-total" style="background:#fce4ec;"></td>
       <td class="col-est"   style="background:#fce4ec;"></td>
@@ -1544,6 +1671,7 @@ function buildRestRow(days, workers) {
       <td class="col-margin" style="background:#fce4ec;"></td>
       <td class="col-remarks" style="background:#fce4ec;"></td>
       <td class="col-status no-print" style="background:#fce4ec;"></td>
+      <td class="col-reset no-print"  style="background:#fce4ec;"></td>
     </tr>`;
 }
 
@@ -1581,11 +1709,11 @@ function saveRest() {
   renderSchedule();
 }
 
-function buildRow(proj, idx, days, wMap) {
+function buildRow(proj, idx, visibleDays, wMap) {
   let cells = '';
   let total = 0;
 
-  for (let d=1; d<=days; d++) {
+  for (const d of visibleDays) {
     const ds  = dateStr(currentYear, currentMonth, d);
     const dow = dayOfWeek(currentYear, currentMonth, d);
     const hol = isHoliday(ds);
@@ -1660,6 +1788,9 @@ function buildRow(proj, idx, days, wMap) {
     <td class="col-status no-print">
       <label class="status-check"><input type="checkbox" ${proj.completed?'checked':''} onchange="toggleCompleted('${proj.id}',this.checked)"> 完工</label>
       <label class="status-check"><input type="checkbox" ${proj.carryOver?'checked':''} onchange="toggleCarryOver('${proj.id}',this.checked)"> 翌月持越</label>
+    </td>
+    <td class="col-reset no-print">
+      <button class="btn btn-danger btn-sm" onclick="resetSchedule('${proj.id}')" title="このカレンダー行の作業者・作業内容をリセット">↺</button>
     </td>
   </tr>`;
 }
@@ -2140,6 +2271,20 @@ document.querySelectorAll('.modal-overlay').forEach(ov => {
 });
 
 // ===========================
+// SCHEDULE RESET
+// ===========================
+function resetSchedule(id) {
+  const proj = getProject(id);
+  if (!proj) return;
+  if (!confirm(`「${proj.name}」のカレンダー情報（作業者・作業内容）をリセットします。\n工事名などの情報はそのまま残ります。よろしいですか？`)) return;
+  const projects = getProjects();
+  const p = projects.find(p => p.id === id);
+  if (p) p.schedule = {};
+  setProjects(projects);
+  renderSchedule();
+}
+
+// ===========================
 // CSV UTILITIES
 // ===========================
 function csvEscape(v) {
@@ -2335,10 +2480,80 @@ function importProjectsCsv(event) {
 function printSchedule() { renderSchedule(); window.print(); }
 
 // ===========================
+// VIEW MODE (PC / スマホ)
+// ===========================
+function initViewMode() {
+  // 画面幅で自動判定（ただし明示的に保存した設定を優先）
+  const saved = localStorage.getItem('view_mode');
+  if (!saved) {
+    viewMode = window.innerWidth < 768 ? 'mobile' : 'pc';
+    localStorage.setItem('view_mode', viewMode);
+  }
+  // 週表示の初期位置：当月なら今日を含む週、それ以外は月初
+  const today = new Date();
+  if (today.getFullYear() === currentYear && today.getMonth() + 1 === currentMonth && viewMode === 'mobile') {
+    const day = today.getDate();
+    mobileWeekStart = Math.max(1, day - (day - 1) % 7);
+  } else {
+    mobileWeekStart = 1;
+  }
+  updateViewModeUI();
+}
+
+function toggleViewMode() {
+  viewMode = viewMode === 'mobile' ? 'pc' : 'mobile';
+  localStorage.setItem('view_mode', viewMode);
+  if (viewMode === 'mobile') {
+    const today = new Date();
+    if (today.getFullYear() === currentYear && today.getMonth() + 1 === currentMonth) {
+      const day = today.getDate();
+      mobileWeekStart = Math.max(1, day - (day - 1) % 7);
+    } else {
+      mobileWeekStart = 1;
+    }
+  }
+  updateViewModeUI();
+  renderSchedule();
+}
+
+function changeWeek(delta) {
+  const days = daysInMonth(currentYear, currentMonth);
+  mobileWeekStart = Math.max(1, Math.min(mobileWeekStart + delta * 7, days));
+  updateWeekNav();
+  renderSchedule();
+}
+
+function updateViewModeUI() {
+  const btn = document.getElementById('btn-view-mode');
+  if (!btn) return;
+  if (viewMode === 'mobile') {
+    btn.textContent = '🖥 PC表示';
+    btn.classList.add('mobile-active');
+    document.getElementById('mobile-week-nav').classList.add('show');
+    updateWeekNav();
+  } else {
+    btn.textContent = '📱 スマホ';
+    btn.classList.remove('mobile-active');
+    document.getElementById('mobile-week-nav').classList.remove('show');
+  }
+}
+
+function updateWeekNav() {
+  const days = daysInMonth(currentYear, currentMonth);
+  const start = Math.max(1, Math.min(mobileWeekStart, days));
+  const end   = Math.min(start + 6, days);
+  document.getElementById('week-label').textContent =
+    `${currentMonth}月 ${start}日〜${end}日`;
+  document.getElementById('btn-prev-week').disabled = (start <= 1);
+  document.getElementById('btn-next-week').disabled = (end >= days);
+}
+
+// ===========================
 // INIT
 // ===========================
 async function init() {
   initFileData();
+  initViewMode();
   // Firebase は常に自動接続（埋め込み設定を使用）
   try {
     await initFirebase(BUILT_IN_FB_CONFIG);
@@ -2517,44 +2732,37 @@ async function generateDailyReport(dateStr, notice) {
   }
 
   // ── 2ページ構造 ──────────────────────────────
-  // テンプレート構造:
-  //   行1-4: ヘッダー, 行5-32: データ14ペア, 行33-34:工場整備, 行35-36:担当者, 行37:休
-  //   ページブレーク: 行38後 → ページ2は行39〜
+  // テンプレート: 行1-38=P1, 行39-76=P2 (P1をそのままコピー済み)
+  // P2行番号 = P1行番号 + 38
 
-  // ページ1行番号 (テンプレート定形済み)
-  const P1_DATA   = [[5,6],[7,8],[9,10],[11,12],[13,14]];
-  const P1_KOJO   = [33, 34]; // 工場整備 (テンプレートにラベル記入済み)
+  // ページ1行番号
+  const P1_DATA   = [[5,6],[7,8],[9,10],[11,12],[13,14]]; // データ5スロット
+  const P1_KOJO   = [33, 34]; // 工場整備
   const P1_TANTO  = [35, 36]; // 工事担当者業務
   const P1_YASUMI = 37;       // 休
 
-  // ページ2行番号 (動的に書き込む)
-  const P2_HEADER = 39;       // P2タイトル行
+  // ページ2行番号 (P1 + 38)
   const P2_DATA   = [[43,44],[45,46],[47,48],[49,50],[51,52]];
-  const P2_KOJO   = [53, 54];
-  const P2_TANTO  = [55, 56];
-  const P2_YASUMI = 57;
+  const P2_KOJO   = [71, 72];
+  const P2_TANTO  = [73, 74];
+  const P2_YASUMI = 75;
 
   const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
+  const DATA_COLS   = ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'];
 
-  // P1データ行クリア・初期化（使用行のみ）
-  P1_DATA.forEach(([ra, rb]) => {
-    ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'].forEach(col => {
-      try { ws.getCell(`${col}${ra}`).value = null; } catch(e){}
-    });
+  // ── データ行クリア関数 ──
+  function clearDataRow(ra, rb) {
+    DATA_COLS.forEach(col => { try { ws.getCell(`${col}${ra}`).value = null; } catch(e){} });
     try { ws.getCell(`B${rb}`).value = null; } catch(e){}
-    try { ws.getCell(`H${ra}`).value = '【'; } catch(e){}
-    try { ws.getCell(`L${ra}`).value = '】'; } catch(e){}
-    try { ws.getCell(`AC${ra}`).value = '始 ･ 継 ･ 完'; } catch(e){}
-    try { ws.getCell(`AC${rb}`).value = '～'; } catch(e){}
     try { ws.getRow(ra).hidden = false; ws.getRow(rb).hidden = false; } catch(e){}
-  });
-
-  // テンプレートの未使用データ行15〜32を非表示
-  for (let r = 15; r <= 32; r++) {
-    try { ws.getRow(r).hidden = true; } catch(e){}
   }
 
-  // P1固定行: 作業員列クリア（ラベルはテンプレートのまま保持）
+  // P1データ行クリア
+  P1_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
+  // P1未使用データ行(15〜32)を非表示
+  for (let r = 15; r <= 32; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
+
+  // P1固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {
     try { ws.getCell(`${col}${P1_KOJO[0]}`).value  = null; } catch(e){}
     try { ws.getCell(`${col}${P1_TANTO[0]}`).value = null; } catch(e){}
@@ -2562,47 +2770,18 @@ async function generateDailyReport(dateStr, notice) {
   });
   try { ws.getCell(`B${P1_YASUMI}`).value = null; } catch(e){}
 
-  // P2ヘッダー書き込み
+  // P2タイトル・注意書き更新（書式はテンプレートから継承）
   try {
-    ws.getCell(`A${P2_HEADER}`).value     = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
-    ws.getCell(`A${P2_HEADER+1}`).value   = notice || '';
-    ws.getCell(`A${P2_HEADER+2}`).value   = '客先';
-    ws.getCell(`B${P2_HEADER+2}`).value   = '(現場)　工事名';
-    ws.getCell(`I${P2_HEADER+2}`).value   = '見積No.';
-    ws.getCell(`M${P2_HEADER+2}`).value   = '内容確認';
-    ws.getCell(`S${P2_HEADER+2}`).value   = '施工者';
-    ws.getCell(`AB${P2_HEADER+2}`).value  = '車両';
-    ws.getCell(`AC${P2_HEADER+2}`).value  = '工程';
+    ws.getCell('A39').value = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
+    ws.getCell('A40').value = notice || '';
   } catch(e){}
 
-  // P2データ行初期化
-  P2_DATA.forEach(([ra, rb]) => {
-    ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'].forEach(col => {
-      try { ws.getCell(`${col}${ra}`).value = null; } catch(e){}
-    });
-    try { ws.getCell(`B${rb}`).value = null; } catch(e){}
-    try { ws.getCell(`H${ra}`).value = '【'; } catch(e){}
-    try { ws.getCell(`L${ra}`).value = '】'; } catch(e){}
-    try { ws.getCell(`AC${ra}`).value = '始 ･ 継 ･ 完'; } catch(e){}
-    try { ws.getCell(`AC${rb}`).value = '～'; } catch(e){}
-    try { ws.getRow(ra).hidden = false; ws.getRow(rb).hidden = false; } catch(e){}
-  });
+  // P2データ行クリア
+  P2_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
+  // P2未使用データ行(53〜70)を非表示
+  for (let r = 53; r <= 70; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
 
-  // P2固定行初期化
-  try {
-    ws.getCell(`A${P2_KOJO[0]}`).value   = '工場';
-    ws.getCell(`H${P2_KOJO[0]}`).value   = '【';
-    ws.getCell(`L${P2_KOJO[0]}`).value   = '】';
-    ws.getCell(`B${P2_KOJO[1]}`).value   = '工場整備';
-    ws.getCell(`AC${P2_KOJO[0]}`).value  = '始 ･ 継 ･ 完';
-    ws.getCell(`AC${P2_KOJO[1]}`).value  = '～';
-    ws.getCell(`H${P2_TANTO[0]}`).value  = '【';
-    ws.getCell(`L${P2_TANTO[0]}`).value  = '】';
-    ws.getCell(`B${P2_TANTO[1]}`).value  = '工事担当者業務';
-    ws.getCell(`AC${P2_TANTO[0]}`).value = '始 ･ 継 ･ 完';
-    ws.getCell(`AC${P2_TANTO[1]}`).value = '～';
-    ws.getCell(`A${P2_YASUMI}`).value    = '休';
-  } catch(e){}
+  // P2固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {
     try { ws.getCell(`${col}${P2_KOJO[0]}`).value  = null; } catch(e){}
     try { ws.getCell(`${col}${P2_TANTO[0]}`).value = null; } catch(e){}
@@ -2610,14 +2789,8 @@ async function generateDailyReport(dateStr, notice) {
   });
   try { ws.getCell(`B${P2_YASUMI}`).value = null; } catch(e){}
 
-  // ページブレーク (行38の後)・印刷範囲
-  try {
-    ws.getRow(38).pageBreak = true;
-    if (!ws.model.rowBreaks) ws.model.rowBreaks = [];
-    ws.model.rowBreaks = ws.model.rowBreaks.filter(b => b.id !== 38);
-    ws.model.rowBreaks.push({ id: 38 });
-  } catch(e){}
-  try { ws.pageSetup.printArea = `A1:AC${P2_YASUMI}`; } catch(e){}
+  // 印刷範囲
+  try { ws.pageSetup.printArea = 'A1:AC76'; } catch(e){}
 
   // ── ヘルパー関数 ─────────────────────────────
   function writeWorkers(ra, workerObjs) {
@@ -2638,7 +2811,7 @@ async function generateDailyReport(dateStr, notice) {
     });
   }
 
-  // データ行書き込み（現場・工事名を同一セル ra に結合、rb は非表示）
+  // データ行書き込み（ra: メインデータ、rb: 工事名）
   function writeDataRow(item, ra, rb) {
     if (item.separator) return;
     const {proj, ent} = item;
@@ -2655,35 +2828,27 @@ async function generateDailyReport(dateStr, notice) {
       if (!sd.length || sd[0]===dateStr) phase = '始';
       else if (proj.completed && sd[sd.length-1]===dateStr) phase = '完';
     }
-    const plantStr    = proj.plant ? `(${proj.plant})` : '';
-    const projNameStr = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
-    const bCombined   = [plantStr, projNameStr].filter(Boolean).join('　');
     try {
       ws.getCell(`A${ra}`).value  = (proj.client||'').slice(0,6);
-      ws.getCell(`B${ra}`).value  = bCombined;
+      ws.getCell(`B${ra}`).value  = proj.plant ? `(${proj.plant})` : '';
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
       ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
-      ws.getCell(`Q${ra}`).font   = Object.assign({}, ws.getCell(`Q${ra}`).font, {name:'HGPゴシックE', size:9, bold:true});
       ws.getCell(`AB${ra}`).value = vNos;
       ws.getCell(`AC${ra}`).value = phase;
+      // rb行に工事名
+      ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
     } catch(e){}
     writeWorkers(ra, entW.map(wid => wMap[wid]).filter(Boolean));
-    // rb行は不要なので非表示
-    try { ws.getRow(rb).hidden = true; } catch(e){}
   }
 
-  // 工場整備行書き込み（ラベルは初期化済み、作業員のみ）
-  function writeKojoRow(ra) {
-    writeWorkers(ra, offWorkers);
-  }
+  // 工場整備行書き込み（ラベルはテンプレート済み、作業員のみ）
+  function writeKojoRow(ra) { writeWorkers(ra, offWorkers); }
 
   // 工事担当者業務行書き込み
-  function writeTantoRow(ra) {
-    writeWorkers(ra, tantoUsers);
-  }
+  function writeTantoRow(ra) { writeWorkers(ra, tantoUsers); }
 
-  // 休行書き込み（ra の A=休、B=休み者名）
+  // 休行書き込み
   function writeRestRow(ra) {
     try { ws.getCell(`A${ra}`).value = '休'; } catch(e){}
     const restNames = restWorkerObjs.map(w => w.name.replace(/[\s　]+/g,'')).join('　');

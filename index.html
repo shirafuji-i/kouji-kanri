@@ -2275,6 +2275,7 @@ async function generateDailyReport(dateStr, notice) {
   const wMap = {};
   workers.forEach(w => wMap[w.id] = w);
   const companyColors = getCompanyColors();
+  console.log('[会社カラー設定]', JSON.stringify(companyColors));
 
   // その日スケジュールがある工事（客先会社名でソート）
   const dayProjects = allProjects.filter(p => {
@@ -2361,7 +2362,7 @@ async function generateDailyReport(dateStr, notice) {
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
       ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
-      ws.getCell(`Q${ra}`).font   = {name:'HGPゴシックE', size:9, bold:true};
+      ws.getCell(`Q${ra}`).font   = Object.assign({}, ws.getCell(`Q${ra}`).font, {name:'HGPゴシックE', size:9, bold:true});
       ws.getCell(`AB${ra}`).value = vNos;
       ws.getCell(`B${rb}`).value  = proj.name || '';
       // 始継完: テンプレートのプレーンテキストをそのまま使用（richTextはセル溢れの原因のため使わない）
@@ -2375,10 +2376,17 @@ async function generateDailyReport(dateStr, notice) {
         const cell = ws.getCell(`${col}${ra}`);
         if (w) {
           cell.value = w.name.replace(/[\s　]+/g,'');
-          const hex  = (companyColors[w.company||''] || '#000000').replace('#','');
-          cell.font  = {name:'HGPゴシックE', size:9, bold:true, color:{argb:'FF'+hex}};
+          const company  = (w.company || '').trim();
+          const rawColor = companyColors[company];
+          const hex      = (rawColor || '#000000').replace('#','').toUpperCase();
+          console.log(`[色] ${w.name} / 会社:「${company}」/ 登録色:${rawColor||'(未設定)'} → ARGB:FF${hex}`);
+          // Object.assign で新しいフォントオブジェクトを生成（共有スタイル上書き防止）
+          cell.font = Object.assign({}, cell.font, {
+            name: 'HGPゴシックE', size: 9, bold: true,
+            color: { argb: 'FF' + hex }
+          });
         }
-      } catch(e){}
+      } catch(e){ console.warn('[色エラー]', e); }
     });
   });
 

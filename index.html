@@ -2688,8 +2688,9 @@ async function generateDailyReport(dateStr, notice) {
     prevCK = ck;
   });
 
-  // 2ページ × 5データスロットに振り分け（同客先はページをまたがない）
-  const PAGE_SLOTS = 5;
+  // 2ページ × 8データスロットに振り分け（同客先はページをまたがない）
+  // separator行もスロットを消費する（空欄で表示）
+  const PAGE_SLOTS = 8;
   const p1Items = [], p2Items = [];
   clientGroups.forEach(cg => {
     const sep1 = p1Items.length > 0 ? 1 : 0;
@@ -2736,13 +2737,13 @@ async function generateDailyReport(dateStr, notice) {
   // P2行番号 = P1行番号 + 38
 
   // ページ1行番号
-  const P1_DATA   = [[5,6],[7,8],[9,10],[11,12],[13,14]]; // データ5スロット
+  const P1_DATA   = [[5,6],[7,8],[9,10],[11,12],[13,14],[15,16],[17,18],[19,20]]; // データ8スロット
   const P1_KOJO   = [33, 34]; // 工場整備
   const P1_TANTO  = [35, 36]; // 工事担当者業務
   const P1_YASUMI = 37;       // 休
 
   // ページ2行番号 (P1 + 38)
-  const P2_DATA   = [[43,44],[45,46],[47,48],[49,50],[51,52]];
+  const P2_DATA   = [[43,44],[45,46],[47,48],[49,50],[51,52],[53,54],[55,56],[57,58]];
   const P2_KOJO   = [71, 72];
   const P2_TANTO  = [73, 74];
   const P2_YASUMI = 75;
@@ -2759,8 +2760,8 @@ async function generateDailyReport(dateStr, notice) {
 
   // P1データ行クリア
   P1_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
-  // P1未使用データ行(15〜32)を非表示
-  for (let r = 15; r <= 32; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
+  // P1余剰データ行(21〜32)を非表示（スロット9-14は使用しない）
+  for (let r = 21; r <= 32; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
 
   // P1固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {
@@ -2778,8 +2779,8 @@ async function generateDailyReport(dateStr, notice) {
 
   // P2データ行クリア
   P2_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
-  // P2未使用データ行(53〜70)を非表示
-  for (let r = 53; r <= 70; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
+  // P2余剰データ行(59〜70)を非表示（スロット9-14は使用しない）
+  for (let r = 59; r <= 70; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
 
   // P2固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {
@@ -2856,16 +2857,17 @@ async function generateDailyReport(dateStr, notice) {
   }
 
   // ── ページ1 書き込み ──────────────────────────
+  // separatorは空欄スロットとして表示（非表示にしない）
   let p1DataIdx = 0;
   p1Items.forEach(item => {
-    if (item.separator || p1DataIdx >= PAGE_SLOTS) return;
-    writeDataRow(item, P1_DATA[p1DataIdx][0], P1_DATA[p1DataIdx][1]);
+    if (p1DataIdx >= PAGE_SLOTS) return;
+    if (!item.separator) {
+      writeDataRow(item, P1_DATA[p1DataIdx][0], P1_DATA[p1DataIdx][1]);
+    }
+    // separator の場合は既にclearDataRowで空欄初期化済み → そのまま表示
     p1DataIdx++;
   });
-  // 未使用P1データ行を非表示
-  for (let i = p1DataIdx; i < PAGE_SLOTS; i++) {
-    try { ws.getRow(P1_DATA[i][0]).hidden = true; ws.getRow(P1_DATA[i][1]).hidden = true; } catch(e){}
-  }
+  // 未使用スロットは空欄のまま常時表示（非表示にしない）
   writeKojoRow(P1_KOJO[0]);
   writeTantoRow(P1_TANTO[0]);
   writeRestRow(P1_YASUMI);
@@ -2873,14 +2875,13 @@ async function generateDailyReport(dateStr, notice) {
   // ── ページ2 書き込み ──────────────────────────
   let p2DataIdx = 0;
   p2Items.forEach(item => {
-    if (item.separator || p2DataIdx >= PAGE_SLOTS) return;
-    writeDataRow(item, P2_DATA[p2DataIdx][0], P2_DATA[p2DataIdx][1]);
+    if (p2DataIdx >= PAGE_SLOTS) return;
+    if (!item.separator) {
+      writeDataRow(item, P2_DATA[p2DataIdx][0], P2_DATA[p2DataIdx][1]);
+    }
     p2DataIdx++;
   });
-  // 未使用P2データ行を非表示
-  for (let i = p2DataIdx; i < PAGE_SLOTS; i++) {
-    try { ws.getRow(P2_DATA[i][0]).hidden = true; ws.getRow(P2_DATA[i][1]).hidden = true; } catch(e){}
-  }
+  // 未使用スロットは空欄のまま常時表示（非表示にしない）
   writeKojoRow(P2_KOJO[0]);
   writeTantoRow(P2_TANTO[0]);
   writeRestRow(P2_YASUMI);

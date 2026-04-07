@@ -582,6 +582,10 @@ tr.project-row:hover .row-btns { display: flex; }
         <option value="入槽">＜入槽＞</option>
       </select>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button id="btn-copy-cell" class="btn btn-secondary" style="flex:1;font-size:12px;" onclick="copyCellData()">📋 コピー</button>
+      <button id="btn-paste-cell" class="btn btn-secondary" style="flex:1;font-size:12px;" onclick="pasteCellData()">📋 貼り付け</button>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-cell')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveCell()">保存</button>
@@ -739,6 +743,7 @@ let editingRemarksId    = null;
 let editingSysUserId    = null;
 let cellStatus          = 'none';
 let dragSrcId           = null;
+let copiedCellData      = null; // コピーしたセルデータ
 let currentUser         = null;  // { id, name, email, role }
 
 const JP_HOLIDAYS = [
@@ -1714,7 +1719,53 @@ function openCellModal(projectId, ds) {
   document.getElementById('inp-cell-work').value   = ent.workContent || ent.note || '';
   document.getElementById('inp-cell-memo').value   = ent.memo || '';
   document.getElementById('inp-cell-permit').value = ent.permitType || '';
+  // コピー/貼り付けボタン状態
+  document.getElementById('btn-copy-cell').textContent  = '📋 コピー';
+  const pasteBtn = document.getElementById('btn-paste-cell');
+  if (copiedCellData) {
+    pasteBtn.textContent = '📋 貼り付け';
+    pasteBtn.disabled = false;
+    pasteBtn.style.opacity = '1';
+  } else {
+    pasteBtn.textContent = '📋 貼り付け（なし）';
+    pasteBtn.disabled = true;
+    pasteBtn.style.opacity = '0.4';
+  }
   openModal('modal-cell');
+}
+
+function copyCellData() {
+  copiedCellData = {
+    status:      cellStatus,
+    workers:     Array.from(document.querySelectorAll('#modal-worker-grid input[type=checkbox]:checked')).map(cb=>cb.value),
+    workContent: document.getElementById('inp-cell-work').value,
+    memo:        document.getElementById('inp-cell-memo').value,
+    permitType:  document.getElementById('inp-cell-permit').value,
+  };
+  const btn = document.getElementById('btn-copy-cell');
+  btn.textContent = '✅ コピー済み！';
+  setTimeout(() => { btn.textContent = '📋 コピー'; }, 1800);
+  // 貼り付けボタンを有効化
+  const pasteBtn = document.getElementById('btn-paste-cell');
+  pasteBtn.textContent = '📋 貼り付け';
+  pasteBtn.disabled = false;
+  pasteBtn.style.opacity = '1';
+}
+
+function pasteCellData() {
+  if (!copiedCellData) return;
+  cellStatus = copiedCellData.status || 'none';
+  updateStatusUI();
+  const checks = copiedCellData.workers || [];
+  document.querySelectorAll('#modal-worker-grid input[type=checkbox]').forEach(cb => {
+    cb.checked = checks.includes(cb.value);
+  });
+  document.getElementById('inp-cell-work').value   = copiedCellData.workContent || '';
+  document.getElementById('inp-cell-memo').value   = copiedCellData.memo || '';
+  document.getElementById('inp-cell-permit').value = copiedCellData.permitType || '';
+  const btn = document.getElementById('btn-paste-cell');
+  btn.textContent = '✅ 貼り付け完了！';
+  setTimeout(() => { btn.textContent = '📋 貼り付け'; }, 1800);
 }
 
 function selectStatus(s) { cellStatus=s; updateStatusUI(); }

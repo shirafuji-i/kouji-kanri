@@ -775,7 +775,19 @@ function getProject(id)     { return getProjects().find(p => p.id === id); }
 // ===========================
 let fbApp = null;
 let fbRef = null;
-let fbConfigJson = localStorage.getItem('firebase_config') || '';
+
+// ★ Firebase設定を直接埋め込み（全デバイスで自動接続・設定不要）
+const BUILT_IN_FB_CONFIG = {
+  apiKey:            "AIzaSyBg-i5iztX-aQ7tdcjyX-d6KTN2A9Vx_Us",
+  authDomain:        "kouji-kanri-6379f.firebaseapp.com",
+  projectId:         "kouji-kanri-6379f",
+  storageBucket:     "kouji-kanri-6379f.firebasestorage.app",
+  messagingSenderId: "984915758246",
+  appId:             "1:984915758246:web:ee76cc6812ec4b6c403867",
+  databaseURL:       "https://kouji-kanri-6379f-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+let fbConfigJson = JSON.stringify(BUILT_IN_FB_CONFIG);
 
 function openCloudSettings() {
   if (fbConfigJson) {
@@ -1015,10 +1027,10 @@ function doLogin() {
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
   if (!email) { errEl.textContent = 'メールアドレスを入力してください'; return; }
+  localStorage.setItem('last_login_email', email); // 入力時点で記憶（デバイスごと）
   const users = getSysUsers();
   const user  = users.find(u => u.email.toLowerCase() === email);
   if (!user) { errEl.textContent = '登録されていないメールアドレスです'; return; }
-  localStorage.setItem('last_login_email', email);
   setCurrentUser(user);
   hideLoginOverlay();
   renderAll();
@@ -2059,22 +2071,18 @@ function printSchedule() { renderSchedule(); window.print(); }
 // ===========================
 async function init() {
   initFileData();
-  if (fbConfigJson) {
-    try {
-      const cfg = parseFirebaseConfig(fbConfigJson);
-      await initFirebase(cfg);
-      await loadFromCloud();
-    } catch(e) {
-      console.error('Firebase初期化エラー:', e);
-      updateFileStatus('disconnected');
-    }
+  // Firebase は常に自動接続（埋め込み設定を使用）
+  try {
+    await initFirebase(BUILT_IN_FB_CONFIG);
+    await loadFromCloud();
+  } catch(e) {
+    console.error('Firebase初期化エラー:', e);
+    updateFileStatus('disconnected');
   }
   renderAll();
-  // セッション復元を試みる（前回ログイン済みならそのまま）
+  // セッション復元（前回ログイン済みならそのまま）
   const restored = restoreSession();
-  if (!restored) {
-    showLoginOverlay();
-  }
+  if (!restored) showLoginOverlay();
 }
 init();
 

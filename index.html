@@ -405,6 +405,7 @@ tr.project-row:hover .row-btns { display: flex; }
           <th>氏名</th>
           <th>メールアドレス</th>
           <th>権限</th>
+          <th>職分</th>
           <th class="col-actions">操作</th>
         </tr>
       </thead>
@@ -504,12 +505,23 @@ tr.project-row:hover .row-btns { display: flex; }
       <label>メールアドレス *</label>
       <input type="email" id="inp-su-email" placeholder="例: yamada@example.com">
     </div>
-    <div class="form-group">
-      <label>権限</label>
-      <select id="inp-su-role">
-        <option value="user">一般</option>
-        <option value="admin">管理者</option>
-      </select>
+    <div class="form-row">
+      <div class="form-group">
+        <label>権限</label>
+        <select id="inp-su-role">
+          <option value="user">一般</option>
+          <option value="admin">管理者</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>職分</label>
+        <select id="inp-su-shokubun" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;font-family:inherit;">
+          <option value="">---</option>
+          <option value="担当者">担当者</option>
+          <option value="責任者">責任者</option>
+          <option value="作業者">作業者</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-sysuser')">キャンセル</button>
@@ -1162,7 +1174,7 @@ function renderSysUsers() {
   const users = getSysUsers();
   const tbody = document.getElementById('sysuser-tbody');
   if (users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">ユーザーがいません</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">ユーザーがいません</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map((u, i) => `
@@ -1171,6 +1183,7 @@ function renderSysUsers() {
       <td>${esc(u.name)}</td>
       <td>${esc(u.email)}</td>
       <td>${u.role === 'admin' ? '<span class="admin-badge">管理者</span>' : '一般'}</td>
+      <td>${esc(u.shokubun||'')}</td>
       <td class="col-actions">
         <button class="btn btn-secondary btn-sm" onclick="editSysUser('${u.id}')">編集</button>
         <button class="btn btn-danger btn-sm"    onclick="deleteSysUser('${u.id}')">削除</button>
@@ -1183,13 +1196,15 @@ function openUserModal(id) {
   document.getElementById('modal-sysuser-title').textContent = id ? 'ユーザーを編集' : 'ユーザーを追加';
   if (id) {
     const u = getSysUsers().find(u => u.id === id);
-    document.getElementById('inp-su-name').value  = u.name;
-    document.getElementById('inp-su-email').value = u.email;
-    document.getElementById('inp-su-role').value  = u.role || 'user';
+    document.getElementById('inp-su-name').value     = u.name;
+    document.getElementById('inp-su-email').value    = u.email;
+    document.getElementById('inp-su-role').value     = u.role     || 'user';
+    document.getElementById('inp-su-shokubun').value = u.shokubun || '';
   } else {
-    document.getElementById('inp-su-name').value  = '';
-    document.getElementById('inp-su-email').value = '';
-    document.getElementById('inp-su-role').value  = 'user';
+    document.getElementById('inp-su-name').value     = '';
+    document.getElementById('inp-su-email').value    = '';
+    document.getElementById('inp-su-role').value     = 'user';
+    document.getElementById('inp-su-shokubun').value = '';
   }
   openModal('modal-sysuser');
 }
@@ -1197,15 +1212,16 @@ function openUserModal(id) {
 function editSysUser(id) { openUserModal(id); }
 
 function saveSysUser() {
-  const name  = document.getElementById('inp-su-name').value.trim();
-  const email = document.getElementById('inp-su-email').value.trim().toLowerCase();
-  const role  = document.getElementById('inp-su-role').value;
+  const name     = document.getElementById('inp-su-name').value.trim();
+  const email    = document.getElementById('inp-su-email').value.trim().toLowerCase();
+  const role     = document.getElementById('inp-su-role').value;
+  const shokubun = document.getElementById('inp-su-shokubun').value;
   if (!name)  { alert('氏名を入力してください'); return; }
   if (!email) { alert('メールアドレスを入力してください'); return; }
   const users = getSysUsers();
   if (editingSysUserId) {
     const u = users.find(u => u.id === editingSysUserId);
-    if (u) { u.name = name; u.email = email; u.role = role; }
+    if (u) { u.name = name; u.email = email; u.role = role; u.shokubun = shokubun; }
     // ログイン中のユーザーが自分自身を編集した場合、セッション更新
     if (currentUser && currentUser.id === editingSysUserId) {
       setCurrentUser(Object.assign({}, u));
@@ -1213,7 +1229,7 @@ function saveSysUser() {
   } else {
     const dup = users.find(u => u.email === email);
     if (dup) { alert('このメールアドレスはすでに登録されています'); return; }
-    users.push({ id: uid(), name, email, role, createdAt: Date.now() });
+    users.push({ id: uid(), name, email, role, shokubun, createdAt: Date.now() });
   }
   setSysUsers(users);
   closeModal('modal-sysuser');
@@ -2329,11 +2345,12 @@ async function generateDailyReport(dateStr, notice) {
   const dow = new Date(year, month-1, day).getDay();
   const dayName = dayNames[dow];
 
-  const allProjects = getMonthData(year, month).projects;
-  const workers = getWorkers();
-  const wMap = {};
+  const allProjects  = getMonthData(year, month).projects;
+  const workers      = getWorkers();
+  const wMap         = {};
   workers.forEach(w => wMap[w.id] = w);
   const companyColors = getCompanyColors();
+  const sysUsers     = getSysUsers();
 
   // その日スケジュールがある工事（客先会社名でソート）
   const dayProjects = allProjects.filter(p => {
@@ -2341,22 +2358,40 @@ async function generateDailyReport(dateStr, notice) {
     return e && (e.status!=='none' || (e.workers&&e.workers.length) || e.workContent || e.note || e.memo);
   }).sort((a,b) => (a.client||'').localeCompare(b.client||'', 'ja'));
 
-  // 会社間区切りを含むアイテムリスト生成
-  const items = []; // {proj, ent} or {separator:true}
-  let prevClient = null;
-  dayProjects.forEach(proj => {
-    const clientKey = proj.client || '';
-    if (prevClient !== null && clientKey !== prevClient) {
-      items.push({separator: true}); // 会社間の空行
-    }
-    items.push({proj, ent:(proj.schedule||{})[dateStr]});
-    prevClient = clientKey;
-  });
-
-  // 本日未配置の作業者
+  // 未配置作業者（工場整備に充てる）
   const assignedIds = new Set();
   dayProjects.forEach(p => ((p.schedule[dateStr]||{}).workers||[]).forEach(id=>assignedIds.add(id)));
   const offWorkers = workers.filter(w => !assignedIds.has(w.id));
+
+  // 職分「担当者」のユーザー（工事担当者業務に充てる）
+  const tantoUsers = sysUsers.filter(u => u.shokubun === '担当者');
+
+  // 客先グループ別に分類
+  const clientGroups = [];
+  let prevCK = null;
+  dayProjects.forEach(proj => {
+    const ck = proj.client || '';
+    if (prevCK === null || ck !== prevCK) clientGroups.push({client: ck, projs: []});
+    clientGroups[clientGroups.length-1].projs.push(proj);
+    prevCK = ck;
+  });
+
+  // 2ページ × 6データスロットに振り分け（同客先はページをまたがない）
+  const PAGE_SLOTS = 6;
+  const p1Items = [], p2Items = [];
+  clientGroups.forEach(cg => {
+    const sep1 = p1Items.length > 0 ? 1 : 0;
+    if (p1Items.length + sep1 + cg.projs.length <= PAGE_SLOTS) {
+      if (sep1) p1Items.push({separator: true});
+      cg.projs.forEach(p => p1Items.push({proj: p, ent: (p.schedule||{})[dateStr]}));
+    } else {
+      const sep2 = p2Items.length > 0 ? 1 : 0;
+      if (p2Items.length + sep2 + cg.projs.length <= PAGE_SLOTS) {
+        if (sep2) p2Items.push({separator: true});
+        cg.projs.forEach(p => p2Items.push({proj: p, ent: (p.schedule||{})[dateStr]}));
+      }
+    }
+  });
 
   // テンプレート読み込み
   const binary = atob(DAILY_REPORT_TEMPLATE_B64);
@@ -2366,36 +2401,38 @@ async function generateDailyReport(dateStr, notice) {
   await wb.xlsx.load(bytes.buffer);
   const ws = wb.getWorksheet(1);
 
-  // タイトル・注意書き更新
+  // タイトル・注意書き
   ws.getCell('A1').value = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
   ws.getCell('A2').value = notice || '';
 
-  // ヘッダーラベル修正（テンプレートの「現場」→「客先」、「(客先)」→「(現場)」）
+  // ヘッダーラベル修正（現場↔客先）
   for (let r = 1; r <= 4; r++) {
     ws.getRow(r).eachCell(cell => {
       if (typeof cell.value === 'string') {
-        if (cell.value === '現場')           cell.value = '客先';
-        else if (cell.value === '(客先)')    cell.value = '(現場)';
-        else if (cell.value === '（客先）')  cell.value = '（現場）';
+        if (cell.value === '現場')          cell.value = '客先';
+        else if (cell.value === '(客先)')   cell.value = '(現場)';
+        else if (cell.value === '（客先）') cell.value = '（現場）';
       }
     });
   }
 
-  // データ行定義（16ペア）
+  // ── 2ページ構造 ──────────────────────────────
+  // Page1: データ6行 + 工場整備 + 工事担当者業務
+  // Page2: データ6行 + 工場整備 + 工事担当者業務
   const ENTRY_ROWS = [
-    [5,6],[7,8],[9,10],[11,12],[13,14],[15,16],
-    [17,18],[19,20],[21,22],[23,24],[25,26],[27,28],
-    [29,30],[31,32],[33,34],[35,36]
+    [5,6],[7,8],[9,10],[11,12],[13,14],[15,16],   // P1 data 0-5
+    [17,18], [19,20],                              // P1 工場整備, 工事担当者業務
+    [21,22],[23,24],[25,26],[27,28],[29,30],[31,32],// P2 data 8-13
+    [33,34], [35,36]                               // P2 工場整備, 工事担当者業務
   ];
-  const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA']; // 9列
+  const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
 
-  // 全データ行をクリア
+  // 全行クリア
   ENTRY_ROWS.forEach(([ra, rb]) => {
     ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'].forEach(col => {
       try { ws.getCell(`${col}${ra}`).value = null; } catch(e){}
     });
     try { ws.getCell(`B${rb}`).value = null; } catch(e){}
-    // 静的セル（【, 】, 始継完, ～）を復元
     try { ws.getCell(`H${ra}`).value = '【'; } catch(e){}
     try { ws.getCell(`L${ra}`).value = '】'; } catch(e){}
     try { ws.getCell(`AC${ra}`).value = '始 ･ 継 ･ 完'; } catch(e){}
@@ -2403,25 +2440,43 @@ async function generateDailyReport(dateStr, notice) {
   });
   try { ws.getCell('A37').value = null; ws.getCell('B37').value = null; } catch(e){}
 
-  // データ埋め込み
-  items.slice(0, 16).forEach((item, i) => {
-    const [ra, rb] = ENTRY_ROWS[i];
-    if (item.separator) return; // 空行はそのまま
+  // ページブレーク（行20の後）
+  try { ws.getRow(20).pageBreak = true; } catch(e){}
 
+  // ── ヘルパー関数 ─────────────────────────────
+  // 施工者セルへの書き込み（workerObjs = Worker/User オブジェクトの配列）
+  function writeWorkers(ra, workerObjs) {
+    WORKER_COLS.forEach((col, wi) => {
+      const w = workerObjs[wi];
+      if (!w) return;
+      try {
+        const company  = (w.company || '').trim();
+        const rawColor = companyColors[company];
+        const hex      = (rawColor || '#000000').replace('#','').toUpperCase();
+        ws.getCell(`${col}${ra}`).value = {
+          richText: [{
+            text: (w.name||'').replace(/[\s　]+/g,''),
+            font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{argb:'FF'+hex} }
+          }]
+        };
+      } catch(e){}
+    });
+  }
+
+  // 通常工事データ行書き込み
+  function writeDataRow(item, ra, rb) {
+    if (item.separator) return;
     const {proj, ent} = item;
-    const entW      = (ent&&ent.workers) || [];
-    const workC     = (ent&&(ent.workContent||ent.note)) || '';
-    const memo      = (ent&&ent.memo) || '';
-    const permitType= (ent&&ent.permitType) || '';
-    const topParts  = [workC, memo, proj.kouji?`＜${proj.kouji}＞`:''].filter(Boolean).join('\n');
-    const content   = permitType ? topParts + '\n\n＜' + permitType + '＞' : topParts;
-    const vNos      = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
-
-    // 始/継/完 判定
+    const entW       = (ent&&ent.workers) || [];
+    const workC      = (ent&&(ent.workContent||ent.note)) || '';
+    const memo       = (ent&&ent.memo) || '';
+    const permitType = (ent&&ent.permitType) || '';
+    const topParts   = [workC, memo, proj.kouji?`＜${proj.kouji}＞`:''].filter(Boolean).join('\n');
+    const content    = permitType ? topParts + '\n\n＜' + permitType + '＞' : topParts;
+    const vNos       = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
     let phase = '継';
     if (proj.schedule) {
-      const sd = Object.keys(proj.schedule)
-        .filter(k=>((proj.schedule[k]||{}).workers||[]).length>0).sort();
+      const sd = Object.keys(proj.schedule).filter(k=>((proj.schedule[k]||{}).workers||[]).length>0).sort();
       if (!sd.length || sd[0]===dateStr) phase = '始';
       else if (proj.completed && sd[sd.length-1]===dateStr) phase = '完';
     }
@@ -2434,38 +2489,39 @@ async function generateDailyReport(dateStr, notice) {
       ws.getCell(`Q${ra}`).font   = Object.assign({}, ws.getCell(`Q${ra}`).font, {name:'HGPゴシックE', size:9, bold:true});
       ws.getCell(`AB${ra}`).value = vNos;
       ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
-      // 始継完: テンプレートのプレーンテキストをそのまま使用（richTextはセル溢れの原因のため使わない）
     } catch(e){}
+    writeWorkers(ra, entW.map(wid => wMap[wid]).filter(Boolean));
+  }
 
-    // 施工者（会社別カラー）— richText で色を設定（共有スタイル問題を回避）
-    WORKER_COLS.forEach((col, wi) => {
-      const wId = entW[wi];
-      const w   = wId ? wMap[wId] : null;
-      try {
-        const cell = ws.getCell(`${col}${ra}`);
-        if (w) {
-          const company = (w.company || '').trim();
-          const rawColor = companyColors[company];
-          const hex = (rawColor || '#000000').replace('#','').toUpperCase();
-          cell.value = {
-            richText: [{
-              text: w.name.replace(/[\s　]+/g,''),
-              font: {
-                name: 'HGPゴシックE', family: 4, size: 9,
-                bold: true, color: { argb: 'FF' + hex }
-              }
-            }]
-          };
-        }
-      } catch(e){}
-    });
+  // 工場整備行書き込み
+  function writeKojoRow(ra, rb) {
+    try { ws.getCell(`B${rb}`).value = '工場整備'; } catch(e){}
+    writeWorkers(ra, offWorkers);
+  }
+
+  // 工事担当者業務行書き込み
+  function writeTantoRow(ra, rb) {
+    try { ws.getCell(`B${rb}`).value = '工事担当者業務'; } catch(e){}
+    writeWorkers(ra, tantoUsers);
+  }
+
+  // ── ページ1 書き込み ──────────────────────────
+  p1Items.forEach((item, i) => {
+    if (i >= PAGE_SLOTS) return;
+    const [ra, rb] = ENTRY_ROWS[i];
+    writeDataRow(item, ra, rb);
   });
+  writeKojoRow( ENTRY_ROWS[6][0],  ENTRY_ROWS[6][1]);
+  writeTantoRow(ENTRY_ROWS[7][0],  ENTRY_ROWS[7][1]);
 
-  // 休（未配置作業者）
-  try {
-    ws.getCell('A37').value = '休';
-    ws.getCell('B37').value = offWorkers.map(w=>w.name).join('　');
-  } catch(e){}
+  // ── ページ2 書き込み ──────────────────────────
+  p2Items.forEach((item, i) => {
+    if (i >= PAGE_SLOTS) return;
+    const [ra, rb] = ENTRY_ROWS[8 + i];
+    writeDataRow(item, ra, rb);
+  });
+  writeKojoRow( ENTRY_ROWS[14][0], ENTRY_ROWS[14][1]);
+  writeTantoRow(ENTRY_ROWS[15][0], ENTRY_ROWS[15][1]);
 
   // ダウンロード
   const buf  = await wb.xlsx.writeBuffer();

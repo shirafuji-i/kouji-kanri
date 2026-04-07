@@ -137,6 +137,7 @@ tr.avail-row td { border-top: 2px solid #6a8cc0; }
 .avail-names { color: #1565c0; writing-mode: vertical-rl; text-orientation: upright; display: inline-block; }
 
 .group-header-row td { background: #dde4f0 !important; font-weight: bold; font-size: 12px; padding: 5px 10px; border-top: 2px solid #8a9cc0; text-align: left !important; position: static !important; color: #1e3a5f; }
+tr.teishu-summary-row td { background: #eaf4fb !important; }
 
 /* Drag */
 .drag-handle { display: inline; cursor: grab; font-size: 13px; color: #ccc; padding: 0 2px; }
@@ -1369,6 +1370,7 @@ function renderSchedule() {
   let rows = '';
   if (clientFilter) {
     projects.forEach((proj, idx) => { rows += buildRow(proj, idx, days, wMap); });
+    rows += buildTeishuSummaryRows(projects, days);
   } else {
     // Stable grouping by client
     const seen = {}, groups = [];
@@ -1383,10 +1385,56 @@ function renderSchedule() {
         <td colspan="${COLS}">🏢 ${esc(g.client)}</td>
       </tr>`;
       g.items.forEach(proj => { rows += buildRow(proj, gi++, days, wMap); });
+      rows += buildTeishuSummaryRows(g.items, days);
     });
   }
   rows += buildAvailableRow(allProjects, days, workers, wMap);
   tbody.innerHTML = rows;
+}
+
+// 同プラント×定修の合算サマリ行を生成
+function buildTeishuSummaryRows(groupProjects, days) {
+  // 定修かつプラントが設定されている工事をプラント別に集計
+  const byPlant = {};
+  groupProjects.filter(p => p.projType === '定修').forEach(p => {
+    const key = p.plant || '（プラント未設定）';
+    if (!byPlant[key]) byPlant[key] = [];
+    byPlant[key].push(p);
+  });
+
+  let html = '';
+  Object.entries(byPlant).forEach(([plant, projs]) => {
+    if (projs.length < 2) return; // 2件以上のとき合計行を表示
+
+    const totalEst     = projs.reduce((s, p) => s + (p.estimatedHours || 0), 0);
+    const totalAct     = projs.reduce((s, p) => s + calcActual(p), 0);
+    const totalWorkers = projs.reduce((s, p) => s + calcActual(p), 0); // 合計人工は実人工と同値
+
+    // 合算粗利率
+    const margin = totalEst > 0 ? (((totalEst - totalAct) / totalEst) * 100).toFixed(1) : null;
+    const marginTxt = margin === null
+      ? '<span style="color:#aaa">—</span>'
+      : parseFloat(margin) >= 0
+        ? `<span style="color:#2e7d32;font-weight:bold;">${margin}%</span>`
+        : `<span style="color:#c62828;font-weight:bold;">${margin}%</span>`;
+
+    const emptyCells = Array(days).fill('<td class="col-day" style="background:#eaf4fb;"></td>').join('');
+
+    html += `
+    <tr class="teishu-summary-row">
+      <td colspan="4" class="sticky-left" style="left:0;background:#eaf4fb;border-top:2px solid #90caf9;font-size:12px;font-weight:bold;color:#1565c0;padding:4px 10px;">
+        📊 定修合計：${esc(plant)}（${projs.length}件）
+      </td>
+      ${emptyCells}
+      <td class="col-total" style="background:#eaf4fb;border-top:2px solid #90caf9;font-weight:bold;"></td>
+      <td class="col-est"   style="background:#eaf4fb;border-top:2px solid #90caf9;font-weight:bold;">${totalEst || '—'}</td>
+      <td class="col-act"   style="background:#eaf4fb;border-top:2px solid #90caf9;font-weight:bold;">${totalAct > 0 ? totalAct : '—'}</td>
+      <td class="col-margin" style="background:#eaf4fb;border-top:2px solid #90caf9;">${marginTxt}</td>
+      <td class="col-remarks" style="background:#eaf4fb;border-top:2px solid #90caf9;"></td>
+      <td class="col-status no-print" style="background:#eaf4fb;border-top:2px solid #90caf9;"></td>
+    </tr>`;
+  });
+  return html;
 }
 
 function buildAvailableRow(allProjects, days, workers, wMap) {

@@ -2517,17 +2517,28 @@ async function generateDailyReport(dateStr, notice) {
   }
 
   // ── 2ページ構造 ──────────────────────────────
-  // 各ページ: データ5行 + 工場整備 + 工事担当者業務 + 休
-  const ENTRY_ROWS = [
-    [5,6],[7,8],[9,10],[11,12],[13,14],             // P1 data 0-4
-    [15,16], [17,18], [19,20],                      // P1 工場整備, 工事担当者業務, 休
-    [21,22],[23,24],[25,26],[27,28],[29,30],         // P2 data 8-12
-    [31,32], [33,34], [35,36]                       // P2 工場整備, 工事担当者業務, 休
-  ];
+  // テンプレート構造:
+  //   行1-4: ヘッダー, 行5-32: データ14ペア, 行33-34:工場整備, 行35-36:担当者, 行37:休
+  //   ページブレーク: 行38後 → ページ2は行39〜
+  const PAGE_SLOTS = 5;
+
+  // ページ1行番号 (テンプレート定形済み)
+  const P1_DATA   = [[5,6],[7,8],[9,10],[11,12],[13,14]];
+  const P1_KOJO   = [33, 34]; // 工場整備 (テンプレートにラベル記入済み)
+  const P1_TANTO  = [35, 36]; // 工事担当者業務
+  const P1_YASUMI = 37;       // 休
+
+  // ページ2行番号 (動的に書き込む)
+  const P2_HEADER = 39;       // P2タイトル行
+  const P2_DATA   = [[43,44],[45,46],[47,48],[49,50],[51,52]];
+  const P2_KOJO   = [53, 54];
+  const P2_TANTO  = [55, 56];
+  const P2_YASUMI = 57;
+
   const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
 
-  // 全行クリア
-  ENTRY_ROWS.forEach(([ra, rb]) => {
+  // P1データ行クリア・初期化（使用行のみ）
+  P1_DATA.forEach(([ra, rb]) => {
     ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'].forEach(col => {
       try { ws.getCell(`${col}${ra}`).value = null; } catch(e){}
     });
@@ -2536,14 +2547,80 @@ async function generateDailyReport(dateStr, notice) {
     try { ws.getCell(`L${ra}`).value = '】'; } catch(e){}
     try { ws.getCell(`AC${ra}`).value = '始 ･ 継 ･ 完'; } catch(e){}
     try { ws.getCell(`AC${rb}`).value = '～'; } catch(e){}
+    try { ws.getRow(ra).hidden = false; ws.getRow(rb).hidden = false; } catch(e){}
   });
-  try { ws.getCell('A37').value = null; ws.getCell('B37').value = null; } catch(e){}
 
-  // ページブレーク（行20の後）
-  try { ws.getRow(20).pageBreak = true; } catch(e){}
+  // テンプレートの未使用データ行15〜32を非表示
+  for (let r = 15; r <= 32; r++) {
+    try { ws.getRow(r).hidden = true; } catch(e){}
+  }
+
+  // P1固定行: 作業員列クリア（ラベルはテンプレートのまま保持）
+  WORKER_COLS.forEach(col => {
+    try { ws.getCell(`${col}${P1_KOJO[0]}`).value  = null; } catch(e){}
+    try { ws.getCell(`${col}${P1_TANTO[0]}`).value = null; } catch(e){}
+    try { ws.getCell(`${col}${P1_YASUMI}`).value   = null; } catch(e){}
+  });
+  try { ws.getCell(`B${P1_YASUMI}`).value = null; } catch(e){}
+
+  // P2ヘッダー書き込み
+  try {
+    ws.getCell(`A${P2_HEADER}`).value     = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
+    ws.getCell(`A${P2_HEADER+1}`).value   = notice || '';
+    ws.getCell(`A${P2_HEADER+2}`).value   = '客先';
+    ws.getCell(`B${P2_HEADER+2}`).value   = '(現場)　工事名';
+    ws.getCell(`I${P2_HEADER+2}`).value   = '見積No.';
+    ws.getCell(`M${P2_HEADER+2}`).value   = '内容確認';
+    ws.getCell(`S${P2_HEADER+2}`).value   = '施工者';
+    ws.getCell(`AB${P2_HEADER+2}`).value  = '車両';
+    ws.getCell(`AC${P2_HEADER+2}`).value  = '工程';
+  } catch(e){}
+
+  // P2データ行初期化
+  P2_DATA.forEach(([ra, rb]) => {
+    ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'].forEach(col => {
+      try { ws.getCell(`${col}${ra}`).value = null; } catch(e){}
+    });
+    try { ws.getCell(`B${rb}`).value = null; } catch(e){}
+    try { ws.getCell(`H${ra}`).value = '【'; } catch(e){}
+    try { ws.getCell(`L${ra}`).value = '】'; } catch(e){}
+    try { ws.getCell(`AC${ra}`).value = '始 ･ 継 ･ 完'; } catch(e){}
+    try { ws.getCell(`AC${rb}`).value = '～'; } catch(e){}
+    try { ws.getRow(ra).hidden = false; ws.getRow(rb).hidden = false; } catch(e){}
+  });
+
+  // P2固定行初期化
+  try {
+    ws.getCell(`A${P2_KOJO[0]}`).value   = '工場';
+    ws.getCell(`H${P2_KOJO[0]}`).value   = '【';
+    ws.getCell(`L${P2_KOJO[0]}`).value   = '】';
+    ws.getCell(`B${P2_KOJO[1]}`).value   = '工場整備';
+    ws.getCell(`AC${P2_KOJO[0]}`).value  = '始 ･ 継 ･ 完';
+    ws.getCell(`AC${P2_KOJO[1]}`).value  = '～';
+    ws.getCell(`H${P2_TANTO[0]}`).value  = '【';
+    ws.getCell(`L${P2_TANTO[0]}`).value  = '】';
+    ws.getCell(`B${P2_TANTO[1]}`).value  = '工事担当者業務';
+    ws.getCell(`AC${P2_TANTO[0]}`).value = '始 ･ 継 ･ 完';
+    ws.getCell(`AC${P2_TANTO[1]}`).value = '～';
+    ws.getCell(`A${P2_YASUMI}`).value    = '休';
+  } catch(e){}
+  WORKER_COLS.forEach(col => {
+    try { ws.getCell(`${col}${P2_KOJO[0]}`).value  = null; } catch(e){}
+    try { ws.getCell(`${col}${P2_TANTO[0]}`).value = null; } catch(e){}
+    try { ws.getCell(`${col}${P2_YASUMI}`).value   = null; } catch(e){}
+  });
+  try { ws.getCell(`B${P2_YASUMI}`).value = null; } catch(e){}
+
+  // ページブレーク (行38の後)・印刷範囲
+  try {
+    ws.getRow(38).pageBreak = true;
+    if (!ws.model.rowBreaks) ws.model.rowBreaks = [];
+    ws.model.rowBreaks = ws.model.rowBreaks.filter(b => b.id !== 38);
+    ws.model.rowBreaks.push({ id: 38 });
+  } catch(e){}
+  try { ws.pageSetup.printArea = `A1:AC${P2_YASUMI}`; } catch(e){}
 
   // ── ヘルパー関数 ─────────────────────────────
-  // 施工者セルへの書き込み（workerObjs = Worker/User オブジェクトの配列）
   function writeWorkers(ra, workerObjs) {
     WORKER_COLS.forEach((col, wi) => {
       const w = workerObjs[wi];
@@ -2562,7 +2639,7 @@ async function generateDailyReport(dateStr, notice) {
     });
   }
 
-  // 通常工事データ行書き込み
+  // データ行書き込み（現場・工事名を同一セル ra に結合、rb は非表示）
   function writeDataRow(item, ra, rb) {
     if (item.separator) return;
     const {proj, ent} = item;
@@ -2579,58 +2656,70 @@ async function generateDailyReport(dateStr, notice) {
       if (!sd.length || sd[0]===dateStr) phase = '始';
       else if (proj.completed && sd[sd.length-1]===dateStr) phase = '完';
     }
+    const plantStr    = proj.plant ? `(${proj.plant})` : '';
+    const projNameStr = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
+    const bCombined   = [plantStr, projNameStr].filter(Boolean).join('　');
     try {
       ws.getCell(`A${ra}`).value  = (proj.client||'').slice(0,6);
-      ws.getCell(`B${ra}`).value  = proj.plant ? `(${proj.plant})` : '';
+      ws.getCell(`B${ra}`).value  = bCombined;
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
       ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
       ws.getCell(`Q${ra}`).font   = Object.assign({}, ws.getCell(`Q${ra}`).font, {name:'HGPゴシックE', size:9, bold:true});
       ws.getCell(`AB${ra}`).value = vNos;
-      ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
+      ws.getCell(`AC${ra}`).value = phase;
     } catch(e){}
     writeWorkers(ra, entW.map(wid => wMap[wid]).filter(Boolean));
+    // rb行は不要なので非表示
+    try { ws.getRow(rb).hidden = true; } catch(e){}
   }
 
-  // 工場整備行書き込み
-  function writeKojoRow(ra, rb) {
-    try { ws.getCell(`B${rb}`).value = '工場整備'; } catch(e){}
+  // 工場整備行書き込み（ラベルは初期化済み、作業員のみ）
+  function writeKojoRow(ra) {
     writeWorkers(ra, offWorkers);
   }
 
   // 工事担当者業務行書き込み
-  function writeTantoRow(ra, rb) {
-    try { ws.getCell(`B${rb}`).value = '工事担当者業務'; } catch(e){}
+  function writeTantoRow(ra) {
     writeWorkers(ra, tantoUsers);
   }
 
-  // 休行書き込み
-  function writeRestRow(ra, rb) {
-    try {
-      ws.getCell(`A${ra}`).value  = '休';
-      ws.getCell(`B${rb}`).value  = restWorkerObjs.map(w => w.name.replace(/[\s　]+/g,'')).join('　');
-    } catch(e){}
+  // 休行書き込み（ra の A=休、B=休み者名）
+  function writeRestRow(ra) {
+    try { ws.getCell(`A${ra}`).value = '休'; } catch(e){}
+    const restNames = restWorkerObjs.map(w => w.name.replace(/[\s　]+/g,'')).join('　');
+    try { ws.getCell(`B${ra}`).value = restNames || null; } catch(e){}
   }
 
   // ── ページ1 書き込み ──────────────────────────
-  p1Items.forEach((item, i) => {
-    if (i >= PAGE_SLOTS) return;
-    const [ra, rb] = ENTRY_ROWS[i];
-    writeDataRow(item, ra, rb);
+  let p1DataIdx = 0;
+  p1Items.forEach(item => {
+    if (item.separator || p1DataIdx >= PAGE_SLOTS) return;
+    writeDataRow(item, P1_DATA[p1DataIdx][0], P1_DATA[p1DataIdx][1]);
+    p1DataIdx++;
   });
-  writeKojoRow(  ENTRY_ROWS[5][0],  ENTRY_ROWS[5][1]);
-  writeTantoRow( ENTRY_ROWS[6][0],  ENTRY_ROWS[6][1]);
-  writeRestRow(  ENTRY_ROWS[7][0],  ENTRY_ROWS[7][1]);
+  // 未使用P1データ行を非表示
+  for (let i = p1DataIdx; i < PAGE_SLOTS; i++) {
+    try { ws.getRow(P1_DATA[i][0]).hidden = true; ws.getRow(P1_DATA[i][1]).hidden = true; } catch(e){}
+  }
+  writeKojoRow(P1_KOJO[0]);
+  writeTantoRow(P1_TANTO[0]);
+  writeRestRow(P1_YASUMI);
 
   // ── ページ2 書き込み ──────────────────────────
-  p2Items.forEach((item, i) => {
-    if (i >= PAGE_SLOTS) return;
-    const [ra, rb] = ENTRY_ROWS[8 + i];
-    writeDataRow(item, ra, rb);
+  let p2DataIdx = 0;
+  p2Items.forEach(item => {
+    if (item.separator || p2DataIdx >= PAGE_SLOTS) return;
+    writeDataRow(item, P2_DATA[p2DataIdx][0], P2_DATA[p2DataIdx][1]);
+    p2DataIdx++;
   });
-  writeKojoRow(  ENTRY_ROWS[13][0], ENTRY_ROWS[13][1]);
-  writeTantoRow( ENTRY_ROWS[14][0], ENTRY_ROWS[14][1]);
-  writeRestRow(  ENTRY_ROWS[15][0], ENTRY_ROWS[15][1]);
+  // 未使用P2データ行を非表示
+  for (let i = p2DataIdx; i < PAGE_SLOTS; i++) {
+    try { ws.getRow(P2_DATA[i][0]).hidden = true; ws.getRow(P2_DATA[i][1]).hidden = true; } catch(e){}
+  }
+  writeKojoRow(P2_KOJO[0]);
+  writeTantoRow(P2_TANTO[0]);
+  writeRestRow(P2_YASUMI);
 
   // ダウンロード
   const buf  = await wb.xlsx.writeBuffer();

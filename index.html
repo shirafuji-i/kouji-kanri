@@ -573,6 +573,15 @@ tr.project-row:hover .row-btns { display: flex; }
       <label>メモ</label>
       <textarea id="inp-cell-memo" rows="2" placeholder="連絡事項など"></textarea>
     </div>
+    <div class="form-group">
+      <label>作業区分</label>
+      <select id="inp-cell-permit" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;font-family:inherit;">
+        <option value="">なし</option>
+        <option value="一般">＜一般＞</option>
+        <option value="火気">＜火気＞</option>
+        <option value="入槽">＜入槽＞</option>
+      </select>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-cell')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveCell()">保存</button>
@@ -1702,8 +1711,9 @@ function openCellModal(projectId, ds) {
         </label>`
       ).join('');
   // 後方互換: 旧 note → workContent へフォールバック
-  document.getElementById('inp-cell-work').value = ent.workContent || ent.note || '';
-  document.getElementById('inp-cell-memo').value = ent.memo || '';
+  document.getElementById('inp-cell-work').value   = ent.workContent || ent.note || '';
+  document.getElementById('inp-cell-memo').value   = ent.memo || '';
+  document.getElementById('inp-cell-permit').value = ent.permitType || '';
   openModal('modal-cell');
 }
 
@@ -1727,11 +1737,12 @@ function saveCell() {
   ).map(cb=>cb.value);
   const workContent = document.getElementById('inp-cell-work').value.trim();
   const memo        = document.getElementById('inp-cell-memo').value.trim();
+  const permitType  = document.getElementById('inp-cell-permit').value;
 
-  if (cellStatus==='none' && !selWorkers.length && !workContent && !memo) {
+  if (cellStatus==='none' && !selWorkers.length && !workContent && !memo && !permitType) {
     delete proj.schedule[ds];
   } else {
-    proj.schedule[ds] = {status:cellStatus, workers:selWorkers, workContent, memo};
+    proj.schedule[ds] = {status:cellStatus, workers:selWorkers, workContent, memo, permitType};
   }
   setProjects(projects);
   closeModal('modal-cell');
@@ -2277,11 +2288,13 @@ async function generateDailyReport(dateStr, notice) {
     if (item.separator) return; // 空行はそのまま
 
     const {proj, ent} = item;
-    const entW    = (ent&&ent.workers) || [];
-    const workC   = (ent&&(ent.workContent||ent.note)) || '';
-    const memo    = (ent&&ent.memo) || '';
-    const content = [workC, memo, proj.kouji?`＜${proj.kouji}＞`:''].filter(Boolean).join('\n');
-    const vNos    = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
+    const entW      = (ent&&ent.workers) || [];
+    const workC     = (ent&&(ent.workContent||ent.note)) || '';
+    const memo      = (ent&&ent.memo) || '';
+    const permitType= (ent&&ent.permitType) || '';
+    const topParts  = [workC, memo, proj.kouji?`＜${proj.kouji}＞`:''].filter(Boolean).join('\n');
+    const content   = permitType ? topParts + '\n\n＜' + permitType + '＞' : topParts;
+    const vNos      = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
 
     // 始/継/完 判定
     let phase = '継';
@@ -2291,24 +2304,16 @@ async function generateDailyReport(dateStr, notice) {
       if (!sd.length || sd[0]===dateStr) phase = '始';
       else if (proj.completed && sd[sd.length-1]===dateStr) phase = '完';
     }
-    const fPhase = {name:'HGPゴシックE', size:9};
-    const phRich = {richText:[
-      {text:'始', font:{...fPhase, bold:phase==='始', underline:phase==='始'}},
-      {text:' ･ ', font:fPhase},
-      {text:'継', font:{...fPhase, bold:phase==='継', underline:phase==='継'}},
-      {text:' ･ ', font:fPhase},
-      {text:'完', font:{...fPhase, bold:phase==='完', underline:phase==='完'}},
-    ]};
-
     try {
       ws.getCell(`A${ra}`).value  = (proj.client||'').slice(0,6);
       ws.getCell(`B${ra}`).value  = proj.plant ? `(${proj.plant})` : '';
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
       ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
+      ws.getCell(`Q${ra}`).font   = {name:'HGPゴシックE', size:9, bold:true};
       ws.getCell(`AB${ra}`).value = vNos;
       ws.getCell(`B${rb}`).value  = proj.name || '';
-      ws.getCell(`AC${ra}`).value = phRich;
+      // 始継完: テンプレートのプレーンテキストをそのまま使用（richTextはセル溢れの原因のため使わない）
     } catch(e){}
 
     // 施工者（会社別カラー）
@@ -2320,7 +2325,7 @@ async function generateDailyReport(dateStr, notice) {
         if (w) {
           cell.value = w.name.replace(/[\s　]+/g,'');
           const hex  = (companyColors[w.company||''] || '#000000').replace('#','');
-          cell.font  = {name:'HGPゴシックE', size:9, color:{argb:'FF'+hex}};
+          cell.font  = {name:'HGPゴシックE', size:9, bold:true, color:{argb:'FF'+hex}};
         }
       } catch(e){}
     });

@@ -640,6 +640,21 @@ tr.project-row:hover .row-btns { display: flex; }
   </div>
 </div>
 
+<!-- MODAL: 休み編集 -->
+<div class="modal-overlay" id="modal-rest">
+  <div class="modal">
+    <h3 id="modal-rest-title">休み　○月○日</h3>
+    <div class="form-group">
+      <label>休みの作業者（複数選択可）</label>
+      <div class="worker-grid" id="modal-rest-worker-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rest')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveRest()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: 備考編集 -->
 <div class="modal-overlay" id="modal-remarks">
   <div class="modal" style="min-width:320px;">
@@ -765,6 +780,7 @@ let editingSysUserId    = null;
 let cellStatus          = 'none';
 let dragSrcId           = null;
 let copiedCellData      = null; // コピーしたセルデータ
+let editingRestDs       = null; // 休み編集中の日付文字列
 let currentUser         = null;  // { id, name, email, role }
 
 const JP_HOLIDAYS = [
@@ -809,6 +825,9 @@ function setSysUsers(d)     { setFileItem('sysUsers', d); }
 
 function getMonthData(y, m) { return getFileItem(`month_${y}_${m}`, {projects:[]}); }
 function setMonthData(y, m, d){ setFileItem(`month_${y}_${m}`, d); }
+// 休みデータ: {dateStr: [workerId, ...]}
+function getRestData()  { return getFileItem('restData_v1', {}); }
+function setRestData(d) { setFileItem('restData_v1', d); }
 function getProjects()      { return getMonthData(currentYear, currentMonth).projects; }
 function setProjects(p)     { const d = getMonthData(currentYear, currentMonth); d.projects = p; setMonthData(currentYear, currentMonth, d); }
 function getProject(id)     { return getProjects().find(p => p.id === id); }
@@ -1405,6 +1424,7 @@ function renderSchedule() {
     });
   }
   rows += buildAvailableRow(allProjects, days, workers, wMap);
+  rows += buildRestRow(days, workers);
   tbody.innerHTML = rows;
 }
 
@@ -1469,7 +1489,8 @@ function buildAvailableRow(allProjects, days, workers, wMap) {
       if (ent && ent.workers) ent.workers.forEach(id => assignedIds.add(id));
     });
 
-    const available = workers.filter(w => !assignedIds.has(w.id));
+    // 応援は未割当から除外
+    const available = workers.filter(w => !assignedIds.has(w.id) && (w.role||'').trim() !== '応援');
     const baseCls = hol || dow === 0 ? 'td-sun' : (dow === 6 ? 'td-sat' : '');
 
     let content = '';
@@ -1493,6 +1514,71 @@ function buildAvailableRow(allProjects, days, workers, wMap) {
       <td class="col-remarks avail-cell"></td>
       <td class="col-status no-print avail-cell"></td>
     </tr>`;
+}
+
+function buildRestRow(days, workers) {
+  const restData = getRestData();
+  let cells = '';
+  for (let d = 1; d <= days; d++) {
+    const ds  = dateStr(currentYear, currentMonth, d);
+    const dow = dayOfWeek(currentYear, currentMonth, d);
+    const hol = isHoliday(ds);
+    const restIds = restData[ds] || [];
+    const restWorkers = workers.filter(w => restIds.includes(w.id));
+    const baseCls = hol || dow === 0 ? 'td-sun' : (dow === 6 ? 'td-sat' : '');
+    let content = '';
+    if (restWorkers.length > 0) {
+      const abbr = restWorkers.map(w => w.name.replace(/[\s　]+/g,'')[0]).join('');
+      const full = restWorkers.map(w => w.name).join('、');
+      content = `<div class="day-cell-content avail-names" title="${esc(full)}">${esc(abbr)}</div>`;
+    }
+    cells += `<td class="col-day rest-cell ${baseCls}" style="cursor:pointer;" onclick="openRestModal('${ds}')">${content}</td>`;
+  }
+  return `
+    <tr class="rest-row">
+      <td colspan="4" class="sticky-left sl-no" style="left:0;background:#fce4ec;font-weight:bold;font-size:11px;color:#880e4f;text-align:center;">休み</td>
+      ${cells}
+      <td class="col-total" style="background:#fce4ec;"></td>
+      <td class="col-est"   style="background:#fce4ec;"></td>
+      <td class="col-act"   style="background:#fce4ec;"></td>
+      <td class="col-margin" style="background:#fce4ec;"></td>
+      <td class="col-remarks" style="background:#fce4ec;"></td>
+      <td class="col-status no-print" style="background:#fce4ec;"></td>
+    </tr>`;
+}
+
+function openRestModal(ds) {
+  editingRestDs = ds;
+  const [,,m,d] = ds.match(/(\d+)-(\d+)-(\d+)/);
+  document.getElementById('modal-rest-title').textContent = `休み　${parseInt(m)}月${parseInt(d)}日`;
+  const workers  = getWorkers();
+  const restData = getRestData();
+  const selected = restData[ds] || [];
+  document.getElementById('modal-rest-worker-grid').innerHTML = workers.length === 0
+    ? '<span style="color:#999;font-size:12px;">作業者が登録されていません</span>'
+    : workers.map(w =>
+        `<label class="worker-check">
+          <input type="checkbox" name="rw" value="${w.id}" ${selected.includes(w.id)?'checked':''}>
+          <span>${esc(w.name)}${w.company?'<br><small style="color:#888">'+esc(w.company)+'</small>':''}</span>
+        </label>`
+      ).join('');
+  openModal('modal-rest');
+}
+
+function saveRest() {
+  if (!editingRestDs) return;
+  const selIds = Array.from(
+    document.querySelectorAll('#modal-rest-worker-grid input[type=checkbox]:checked')
+  ).map(cb => cb.value);
+  const restData = getRestData();
+  if (selIds.length === 0) {
+    delete restData[editingRestDs];
+  } else {
+    restData[editingRestDs] = selIds;
+  }
+  setRestData(restData);
+  closeModal('modal-rest');
+  renderSchedule();
 }
 
 function buildRow(proj, idx, days, wMap) {
@@ -2358,10 +2444,21 @@ async function generateDailyReport(dateStr, notice) {
     return e && (e.status!=='none' || (e.workers&&e.workers.length) || e.workContent || e.note || e.memo);
   }).sort((a,b) => (a.client||'').localeCompare(b.client||'', 'ja'));
 
-  // 未配置作業者（工場整備に充てる）
+  // 未配置作業者（工場整備に充てる）— 応援・休みは除外
   const assignedIds = new Set();
   dayProjects.forEach(p => ((p.schedule[dateStr]||{}).workers||[]).forEach(id=>assignedIds.add(id)));
-  const offWorkers = workers.filter(w => !assignedIds.has(w.id));
+  const restData   = getRestData();
+  const restIdsDay = new Set(restData[dateStr] || []);
+  // 応援除外・休み除外
+  const offWorkers = workers.filter(w =>
+    !assignedIds.has(w.id) &&
+    (w.role||'').trim() !== '応援' &&
+    !restIdsDay.has(w.id)
+  );
+  // 休み者（応援を除く）
+  const restWorkerObjs = workers.filter(w =>
+    restIdsDay.has(w.id) && (w.role||'').trim() !== '応援'
+  );
 
   // 職分「担当者」のユーザー（工事担当者業務に充てる）
   const tantoUsers = sysUsers.filter(u => u.shokubun === '担当者');
@@ -2376,8 +2473,8 @@ async function generateDailyReport(dateStr, notice) {
     prevCK = ck;
   });
 
-  // 2ページ × 6データスロットに振り分け（同客先はページをまたがない）
-  const PAGE_SLOTS = 6;
+  // 2ページ × 5データスロットに振り分け（同客先はページをまたがない）
+  const PAGE_SLOTS = 5;
   const p1Items = [], p2Items = [];
   clientGroups.forEach(cg => {
     const sep1 = p1Items.length > 0 ? 1 : 0;
@@ -2401,6 +2498,9 @@ async function generateDailyReport(dateStr, notice) {
   await wb.xlsx.load(bytes.buffer);
   const ws = wb.getWorksheet(1);
 
+  // シートタブ名を日付に設定
+  try { ws.name = `${month}月${day}日`; } catch(e){}
+
   // タイトル・注意書き
   ws.getCell('A1').value = `工事予定表　${year}年　${month}月　${day}日　${dayName}曜日`;
   ws.getCell('A2').value = notice || '';
@@ -2417,13 +2517,12 @@ async function generateDailyReport(dateStr, notice) {
   }
 
   // ── 2ページ構造 ──────────────────────────────
-  // Page1: データ6行 + 工場整備 + 工事担当者業務
-  // Page2: データ6行 + 工場整備 + 工事担当者業務
+  // 各ページ: データ5行 + 工場整備 + 工事担当者業務 + 休
   const ENTRY_ROWS = [
-    [5,6],[7,8],[9,10],[11,12],[13,14],[15,16],   // P1 data 0-5
-    [17,18], [19,20],                              // P1 工場整備, 工事担当者業務
-    [21,22],[23,24],[25,26],[27,28],[29,30],[31,32],// P2 data 8-13
-    [33,34], [35,36]                               // P2 工場整備, 工事担当者業務
+    [5,6],[7,8],[9,10],[11,12],[13,14],             // P1 data 0-4
+    [15,16], [17,18], [19,20],                      // P1 工場整備, 工事担当者業務, 休
+    [21,22],[23,24],[25,26],[27,28],[29,30],         // P2 data 8-12
+    [31,32], [33,34], [35,36]                       // P2 工場整備, 工事担当者業務, 休
   ];
   const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
 
@@ -2505,14 +2604,23 @@ async function generateDailyReport(dateStr, notice) {
     writeWorkers(ra, tantoUsers);
   }
 
+  // 休行書き込み
+  function writeRestRow(ra, rb) {
+    try {
+      ws.getCell(`A${ra}`).value  = '休';
+      ws.getCell(`B${rb}`).value  = restWorkerObjs.map(w => w.name.replace(/[\s　]+/g,'')).join('　');
+    } catch(e){}
+  }
+
   // ── ページ1 書き込み ──────────────────────────
   p1Items.forEach((item, i) => {
     if (i >= PAGE_SLOTS) return;
     const [ra, rb] = ENTRY_ROWS[i];
     writeDataRow(item, ra, rb);
   });
-  writeKojoRow( ENTRY_ROWS[6][0],  ENTRY_ROWS[6][1]);
-  writeTantoRow(ENTRY_ROWS[7][0],  ENTRY_ROWS[7][1]);
+  writeKojoRow(  ENTRY_ROWS[5][0],  ENTRY_ROWS[5][1]);
+  writeTantoRow( ENTRY_ROWS[6][0],  ENTRY_ROWS[6][1]);
+  writeRestRow(  ENTRY_ROWS[7][0],  ENTRY_ROWS[7][1]);
 
   // ── ページ2 書き込み ──────────────────────────
   p2Items.forEach((item, i) => {
@@ -2520,8 +2628,9 @@ async function generateDailyReport(dateStr, notice) {
     const [ra, rb] = ENTRY_ROWS[8 + i];
     writeDataRow(item, ra, rb);
   });
-  writeKojoRow( ENTRY_ROWS[14][0], ENTRY_ROWS[14][1]);
-  writeTantoRow(ENTRY_ROWS[15][0], ENTRY_ROWS[15][1]);
+  writeKojoRow(  ENTRY_ROWS[13][0], ENTRY_ROWS[13][1]);
+  writeTantoRow( ENTRY_ROWS[14][0], ENTRY_ROWS[14][1]);
+  writeRestRow(  ENTRY_ROWS[15][0], ENTRY_ROWS[15][1]);
 
   // ダウンロード
   const buf  = await wb.xlsx.writeBuffer();

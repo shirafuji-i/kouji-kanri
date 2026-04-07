@@ -2275,14 +2275,6 @@ async function generateDailyReport(dateStr, notice) {
   const wMap = {};
   workers.forEach(w => wMap[w.id] = w);
   const companyColors = getCompanyColors();
-  // デバッグ: 色設定確認（問題解決後に削除）
-  const colorEntries = Object.entries(companyColors);
-  if (colorEntries.length === 0) {
-    alert('⚠️ 会社カラーが未設定です。\n日次予定表モーダルで色を設定して「保存」ボタンを押してください。');
-  } else {
-    const colorSummary = colorEntries.map(([co, cl]) => `${co}: ${cl}`).join('\n');
-    alert('🎨 現在の会社カラー設定:\n' + colorSummary + '\n\n上記が意図した設定と異なる場合はモーダルで再設定してください。');
-  }
 
   // その日スケジュールがある工事（客先会社名でソート）
   const dayProjects = allProjects.filter(p => {
@@ -2375,22 +2367,24 @@ async function generateDailyReport(dateStr, notice) {
       // 始継完: テンプレートのプレーンテキストをそのまま使用（richTextはセル溢れの原因のため使わない）
     } catch(e){}
 
-    // 施工者（会社別カラー）
+    // 施工者（会社別カラー）— richText で色を設定（共有スタイル問題を回避）
     WORKER_COLS.forEach((col, wi) => {
       const wId = entW[wi];
       const w   = wId ? wMap[wId] : null;
       try {
         const cell = ws.getCell(`${col}${ra}`);
         if (w) {
-          cell.value = w.name.replace(/[\s　]+/g,'');
-          const company  = (w.company || '').trim();
+          const company = (w.company || '').trim();
           const rawColor = companyColors[company];
-          const hex      = (rawColor || '#000000').replace('#','').toUpperCase();
-          // スタイルの共有参照を断ち切るため全プロパティを明示設定
-          cell.font = {
-            name: 'HGPゴシックE', family: 4, size: 9,
-            bold: true, italic: false, underline: false, strike: false,
-            color: { argb: 'FF' + hex }
+          const hex = (rawColor || '#000000').replace('#','').toUpperCase();
+          cell.value = {
+            richText: [{
+              text: w.name.replace(/[\s　]+/g,''),
+              font: {
+                name: 'HGPゴシックE', family: 4, size: 9,
+                bold: true, color: { argb: 'FF' + hex }
+              }
+            }]
           };
         }
       } catch(e){}

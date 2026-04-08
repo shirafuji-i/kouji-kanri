@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月間工程管理ツール 操作マニュアル</title>
+<style>
+  :root { --accent: #1e3a5f; --sub: #2563EB; --border: #c8d4ea; --bg: #f0f2f5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Meiryo','Yu Gothic',sans-serif; font-size: 14px; background: var(--bg); color: #222; line-height: 1.7; }
+
+  /* COVER */
+  .cover { background: var(--accent); color: white; padding: 60px 40px; text-align: center; }
+  .cover h1 { font-size: 28px; margin-bottom: 12px; letter-spacing: 2px; }
+  .cover .sub { font-size: 16px; opacity: 0.8; margin-bottom: 30px; }
+  .cover .meta { font-size: 13px; opacity: 0.6; }
+
+  /* LAYOUT */
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  /* TOC */
+  .toc { background: white; border-radius: 8px; padding: 24px; margin: 20px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .toc h2 { color: var(--accent); font-size: 16px; margin-bottom: 14px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { padding: 3px 0; }
+  .toc a { color: var(--sub); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* SECTION */
+  .section { background: white; border-radius: 8px; padding: 28px; margin: 20px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .section h2 { font-size: 19px; color: var(--accent); border-left: 5px solid var(--sub); padding-left: 12px; margin-bottom: 18px; }
+  .section h3 { font-size: 15px; color: var(--sub); margin: 22px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+  .section h4 { font-size: 13px; font-weight: bold; color: #333; margin: 16px 0 8px; }
+  .section p { margin-bottom: 10px; }
+  .section ul, .section ol { padding-left: 20px; margin-bottom: 10px; }
+  .section li { padding: 2px 0; }
+
+  /* TABLE */
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+  th { background: #c8d4ea; color: #1e3a5f; font-weight: bold; padding: 7px 10px; border: 1px solid #aab; text-align: left; }
+  td { padding: 7px 10px; border: 1px solid #ccc; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f9fd; }
+  .required { color: #c62828; font-weight: bold; }
+  .opt { color: #888; font-size: 11px; }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-left: 4px; }
+  .badge-req  { background: #fce4ec; color: #c62828; }
+  .badge-opt  { background: #e8f5e9; color: #2e7d32; }
+  .badge-auto { background: #e3f2fd; color: #1565c0; }
+  .badge-admin { background: #fff3e0; color: #e65100; }
+
+  /* NOTE / TIP */
+  .note { background: #e8f0fe; border-left: 4px solid var(--sub); padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+  .tip  { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+  .warn { background: #fff3e0; border-left: 4px solid #e65100; padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+
+  /* STEP */
+  .steps { counter-reset: step; }
+  .step { display: flex; gap: 14px; margin-bottom: 14px; align-items: flex-start; }
+  .step-num { counter-increment: step; background: var(--sub); color: white; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; flex-shrink: 0; }
+  .step-body { flex: 1; }
+
+  /* SCREEN LABEL */
+  .screen { font-family: monospace; background: #eef2fa; padding: 1px 6px; border-radius: 3px; font-size: 12px; color: #1e3a5f; border: 1px solid var(--border); }
+  .btn-label { font-family: monospace; background: #1e3a5f; color: white; padding: 1px 7px; border-radius: 3px; font-size: 12px; }
+  .field { font-weight: bold; color: #2563EB; }
+
+  /* PRINT */
+  @media print {
+    body { background: white; }
+    .container { padding: 0; max-width: 100%; }
+    .section, .toc { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+    .cover { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>月間工程管理ツール</h1>
+  <div class="sub">操作マニュアル</div>
+  <div class="meta">対象URL: https://shirafuji-i.github.io/kouji-kanri/</div>
+</div>
+
+<div class="container">
+
+<!-- 目次 -->
+<div class="toc">
+  <h2>📋 目次</h2>
+  <ol>
+    <li><a href="#s1">ツール概要</a></li>
+    <li><a href="#s2">ログイン・初期設定</a></li>
+    <li><a href="#s3">工程管理画面（カレンダー）</a></li>
+    <li><a href="#s4">作業者管理</a></li>
+    <li><a href="#s5">客先管理</a></li>
+    <li><a href="#s6">工数管理</a></li>
+    <li><a href="#s7">ユーザー管理（管理者のみ）</a></li>
+    <li><a href="#s8">クラウド同期設定</a></li>
+    <li><a href="#s9">日次予定表 Excel出力</a></li>
+    <li><a href="#s10">データ入出力（CSV）</a></li>
+    <li><a href="#s11">入力項目一覧・引用元</a></li>
+  </ol>
+</div>
+
+
+<!-- 1. ツール概要 -->
+<div class="section" id="s1">
+  <h2>1. ツール概要</h2>
+  <p>本ツールは工事会社向けの<strong>月間工程管理Webアプリ</strong>です。工事案件のカレンダー管理・作業者アサイン・日次予定表のExcel出力などをブラウザ上で行えます。</p>
+
+  <h3>主な機能</h3>
+  <table>
+    <tr><th>機能</th><th>内容</th></tr>
+    <tr><td>工程カレンダー</td><td>月単位で工事ごとに作業日・担当者を管理</td></tr>
+    <tr><td>作業者管理</td><td>社員・協力会社の作業者情報を登録</td></tr>
+    <tr><td>客先管理</td><td>客先会社・プラントのマスタ管理</td></tr>
+    <tr><td>工数管理</td><td>見積工数・実績工数・粗利率の確認</td></tr>
+    <tr><td>日次予定表出力</td><td>指定日の作業予定をExcel形式で出力</td></tr>
+    <tr><td>クラウド同期</td><td>Firebase経由でPC・スマホ間のデータ共有</td></tr>
+    <tr><td>CSV入出力</td><td>工事・作業者・客先データのCSV管理</td></tr>
+  </table>
+
+  <h3>画面構成（タブ）</h3>
+  <table>
+    <tr><th>タブ</th><th>役割</th><th>アクセス権限</th></tr>
+    <tr><td>📅 工程管理</td><td>月間カレンダー・工事登録</td><td>全ユーザー</td></tr>
+    <tr><td>👷 作業者管理</td><td>作業者マスタ登録・編集</td><td>全ユーザー</td></tr>
+    <tr><td>🏢 客先管理</td><td>客先・プラントマスタ</td><td>全ユーザー</td></tr>
+    <tr><td>📊 工数管理</td><td>工数・粗利率の確認</td><td>全ユーザー</td></tr>
+    <tr><td>👤 ユーザー管理</td><td>システムユーザーの管理</td><td><span class="badge badge-admin">管理者のみ</span></td></tr>
+  </table>
+</div>
+
+
+<!-- 2. ログイン・初期設定 -->
+<div class="section" id="s2">
+  <h2>2. ログイン・初期設定</h2>
+
+  <h3>初回起動時（管理者登録）</h3>
+  <p>初めてツールを開いたとき、管理者の初期登録画面が表示されます。</p>
+  <table>
+    <tr><th>入力項目</th><th>内容</th><th>必須</th></tr>
+    <tr><td><span class="field">氏名</span></td><td>管理者の氏名</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">メールアドレス</span></td><td>ログインに使用するメールアドレス</td><td><span class="badge badge-req">必須</span></td></tr>
+  </table>
+  <div class="note">⚠ 初回登録したアカウントは自動的に <strong>管理者（admin）</strong> 権限になります。</div>
+
+  <h3>ログイン画面</h3>
+  <table>
+    <tr><th>入力項目</th><th>内容</th></tr>
+    <tr><td><span class="field">メールアドレス</span></td><td>登録済みのメールアドレスを入力してログイン</td></tr>
+  </table>
+  <div class="tip">💡 パスワードはありません。登録済みのメールアドレスを入力するとログインできます。</div>
+</div>
+
+
+<!-- 3. 工程管理 -->
+<div class="section" id="s3">
+  <h2>3. 工程管理画面（カレンダー）</h2>
+
+  <h3>3-1. 画面の見方</h3>
+  <table>
+    <tr><th>エリア</th><th>内容</th></tr>
+    <tr><td>ヘッダー行（列固定）</td><td>No. / 客先・プラント / 工事名 / 工種 の情報欄（左右スクロール中も固定表示）</td></tr>
+    <tr><td>日付列</td><td>月の各日（1〜末日）。土曜=青、日・祝日=赤で表示</td></tr>
+    <tr><td>合計人工</td><td>当月の作業者延べ人数</td></tr>
+    <tr><td>見積人工 / 実人工 / 粗利率</td><td>工数管理の数値</td></tr>
+    <tr><td>備考</td><td>工事別の備考欄（クリックで編集）</td></tr>
+    <tr><td>状態</td><td>完工・翌月持越チェックボックス</td></tr>
+    <tr><td>未割当作業員行</td><td>その日に工事アサインされていない作業者を表示（下部固定）</td></tr>
+    <tr><td>休み行</td><td>休みの作業者を表示（下部固定）</td></tr>
+  </table>
+
+  <h3>3-2. セルの色について</h3>
+  <table>
+    <tr><th>色</th><th>意味</th></tr>
+    <tr><td style="background:#FFD700;color:#333;">■ 黄色</td><td>確定（当日の作業が確定）</td></tr>
+    <tr><td style="background:#90EE90;color:#333;">■ 黄緑</td><td>未確定（予定段階）</td></tr>
+    <tr><td>背景白</td><td>登録なし</td></tr>
+  </table>
+
+  <h3>3-3. 年月の変更</h3>
+  <ul>
+    <li><span class="btn-label">◀ 前月</span> / <span class="btn-label">次月 ▶</span>：前後月に移動</li>
+    <li>中央の年月ピッカーをクリック：カレンダーが開き、任意の年月を直接選択可能</li>
+  </ul>
+
+  <h3>3-4. 工事の追加</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><span class="btn-label">＋ 工事追加</span> ボタンをクリック</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">工事情報を入力（下表参照）</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><span class="btn-label">保存</span> をクリック → カレンダーに行が追加される</div></div>
+  </div>
+
+  <h4>工事追加モーダルの入力項目</h4>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th><th>必須</th></tr>
+    <tr><td><span class="field">客先会社</span></td><td>プルダウン選択</td><td>「客先管理」タブで登録した会社から選択</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">プラント（場所）</span></td><td>プルダウン選択</td><td>選択した客先に紐づくプラント一覧から選択</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">工事名</span></td><td>テキスト入力</td><td>例：電気設備工事</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">工事区分</span></td><td>プルダウン選択</td><td>定修 / 日常 から選択</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">見積番号</span></td><td>テキスト入力</td><td>例：MC-0804-001</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">工種・作業概要</span></td><td>テキスト入力</td><td>例：電気・配線</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">見積工数（人工）</span></td><td>数値入力（0.5刻み）</td><td>工数管理の計算に使用</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">登録者</span></td><td>自動入力（読取専用）</td><td>ログイン中のユーザー名が自動セット</td><td><span class="badge badge-auto">自動</span></td></tr>
+  </table>
+
+  <h3>3-5. 日程セルの編集（作業者アサイン）</h3>
+  <p>カレンダーのセルをクリックすると、その工事・その日の詳細を編集できます。</p>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th></tr>
+    <tr><td><span class="field">状態</span></td><td>ラジオボタン</td><td>確定（黄）/ 未確定（黄緑）/ なし を選択</td></tr>
+    <tr><td><span class="field">作業者</span></td><td>チェックボックス（複数選択可）</td><td>「作業者管理」タブに登録された作業者一覧から選択</td></tr>
+    <tr><td><span class="field">作業内容</span></td><td>テキスト入力（複数行）</td><td>当日の作業内容を記入</td></tr>
+    <tr><td><span class="field">メモ</span></td><td>テキスト入力（複数行）</td><td>連絡事項など</td></tr>
+    <tr><td><span class="field">作業区分</span></td><td>プルダウン選択</td><td>なし / 一般 / 火気 / 入槽 から選択</td></tr>
+  </table>
+
+  <div class="tip">💡 <strong>コピー＆貼り付け：</strong> 「📋 コピー」ボタンでセルのデータを記憶し、別のセルで「📋 貼り付け」を使うと内容を転記できます。</div>
+  <div class="tip">💡 <strong>ドラッグ＆ドロップコピー：</strong> 日付セルをドラッグして別の日付にドロップすると、作業者・内容をそのままコピーできます。同じ工事の別日にも、別工事の別日にもコピー可能です。</div>
+
+  <h3>3-6. 行の並び替え</h3>
+  <p>各工事行の左端にある <strong>⠿</strong> マークをドラッグすると、工事の表示順を変更できます。</p>
+
+  <h3>3-7. 工事の状態管理</h3>
+  <table>
+    <tr><th>操作</th><th>内容</th></tr>
+    <tr><td>完工チェック</td><td>完工した工事にチェックを入れるとグレーアウト表示になる</td></tr>
+    <tr><td>翌月持越チェック</td><td>翌月以降も継続する工事にチェック</td></tr>
+    <tr><td>↺ リセットボタン</td><td>その工事の当月スケジュール（作業者・内容）をすべてリセット</td></tr>
+  </table>
+
+  <h3>3-8. 絞り込み表示</h3>
+  <p>ツールバーの <span class="field">客先：</span> プルダウンで客先会社を選択すると、その客先の工事のみ表示されます。</p>
+
+  <h3>3-9. 休み入力</h3>
+  <p>カレンダー最下部の <strong>休み行</strong> の各日付セルをクリックすると、その日に休みの作業者をチェックボックスで選択できます。</p>
+</div>
+
+
+<!-- 4. 作業者管理 -->
+<div class="section" id="s4">
+  <h2>4. 作業者管理</h2>
+  <p>工事にアサインする作業者（社員・協力会社スタッフ）を登録・管理するタブです。</p>
+
+  <h3>作業者の追加</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body">「👷 作業者管理」タブをクリック</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><span class="btn-label">＋ 作業者追加</span> をクリック</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">情報を入力して <span class="btn-label">保存</span></div></div>
+  </div>
+
+  <h4>作業者追加モーダルの入力項目</h4>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th><th>必須</th></tr>
+    <tr><td><span class="field">氏名</span></td><td>テキスト入力</td><td>例：田中 太郎</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">会社名</span></td><td>テキスト入力</td><td>例：○○電気株式会社（協力会社名）</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">職分</span></td><td>テキスト入力</td><td>例：主任・電気工（カレンダー上の作業者表示に使用）</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">車両番号</span></td><td>テキスト入力</td><td>例：品川 500 あ 1234（日次予定表Excelに出力）</td><td><span class="badge badge-opt">任意</span></td></tr>
+  </table>
+
+  <div class="note">📌 <strong>会社名と作業者色：</strong> 同じ会社名の作業者は、カレンダーと日次予定表Excelで同じ色で表示されます。会社の色は客先管理タブで設定できます。</div>
+
+  <h3>作業者の編集・削除</h3>
+  <p>作業者一覧の各行にある <span class="btn-label">✎ 編集</span> / <span class="btn-label">✕ 削除</span> ボタンから操作します。</p>
+</div>
+
+
+<!-- 5. 客先管理 -->
+<div class="section" id="s5">
+  <h2>5. 客先管理</h2>
+  <p>客先会社とプラント（場所）のマスタデータを管理します。工事追加時のプルダウン選択肢として使用されます。</p>
+
+  <h4>客先追加モーダルの入力項目</h4>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th><th>必須</th></tr>
+    <tr><td><span class="field">客先会社</span></td><td>テキスト入力</td><td>例：○○化学工業株式会社</td><td><span class="badge badge-opt">任意</span></td></tr>
+    <tr><td><span class="field">プラント（場所）</span></td><td>テキスト入力</td><td>例：第一工場　B棟（工事登録時のプルダウンに反映）</td><td><span class="badge badge-opt">任意</span></td></tr>
+  </table>
+
+  <div class="note">📌 同じ客先会社名で複数のプラントを登録できます（1社＝複数行）。工事追加時に客先を選択すると、その会社のプラント一覧がプルダウンに自動表示されます。</div>
+
+  <h3>会社カラーの設定</h3>
+  <p>客先一覧の各行に <strong>カラーピッカー</strong> があります。会社ごとに色を設定すると、カレンダーや日次予定表Excelで作業者名がその会社の色で表示されます。</p>
+</div>
+
+
+<!-- 6. 工数管理 -->
+<div class="section" id="s6">
+  <h2>6. 工数管理</h2>
+  <p>工事ごとの見積工数・実績工数・粗利率を管理するタブです。</p>
+
+  <table>
+    <tr><th>表示項目</th><th>内容</th></tr>
+    <tr><td>工事名</td><td>工程管理タブで登録した工事</td></tr>
+    <tr><td>見積工数</td><td>工事登録時に入力した工数（編集可能）</td></tr>
+    <tr><td>実人工</td><td>カレンダーで作業者をアサインした日数の累計（自動計算）</td></tr>
+    <tr><td>粗利率（%）</td><td>（見積工数 − 実人工）÷ 見積工数 × 100（自動計算）</td></tr>
+    <tr><td>備考</td><td>工事ごとのメモ欄</td></tr>
+  </table>
+
+  <div class="tip">💡 見積工数は工数管理タブ上でも直接編集できます。</div>
+</div>
+
+
+<!-- 7. ユーザー管理 -->
+<div class="section" id="s7">
+  <h2>7. ユーザー管理（管理者のみ）</h2>
+  <p><span class="badge badge-admin">管理者専用</span> ログインユーザーの追加・編集・削除を行います。</p>
+
+  <h4>ユーザー追加モーダルの入力項目</h4>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th><th>必須</th></tr>
+    <tr><td><span class="field">氏名</span></td><td>テキスト入力</td><td>例：山田 太郎</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">メールアドレス</span></td><td>メール形式</td><td>ログイン時に使用。重複不可</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">権限</span></td><td>プルダウン選択</td><td>user（一般）/ admin（管理者）</td><td><span class="badge badge-req">必須</span></td></tr>
+    <tr><td><span class="field">職分</span></td><td>プルダウン選択</td><td>担当者 / 責任者 / 作業者　※日次予定表Excelの固定行に反映</td><td><span class="badge badge-opt">任意</span></td></tr>
+  </table>
+
+  <h3>権限の違い</h3>
+  <table>
+    <tr><th>権限</th><th>できること</th></tr>
+    <tr><td>admin（管理者）</td><td>全機能＋ユーザー管理タブへのアクセス・クラウド設定変更</td></tr>
+    <tr><td>user（一般）</td><td>工程管理・作業者管理・客先管理・工数管理・Excel出力</td></tr>
+  </table>
+
+  <h3>職分について</h3>
+  <table>
+    <tr><th>職分</th><th>日次予定表Excelでの表示</th></tr>
+    <tr><td>担当者</td><td>「工事担当者業務」欄（固定行）に自動表示</td></tr>
+    <tr><td>責任者</td><td>ユーザー情報の識別に使用</td></tr>
+    <tr><td>作業者</td><td>ユーザー情報の識別に使用</td></tr>
+  </table>
+</div>
+
+
+<!-- 8. クラウド設定 -->
+<div class="section" id="s8">
+  <h2>8. クラウド同期設定</h2>
+  <p>Firebase Realtime DatabaseによりPC・スマホ間でデータをリアルタイム共有します。</p>
+
+  <div class="note">📌 本ツールは初期状態でクラウド接続済みです。通常は設定変更不要です。</div>
+
+  <h3>接続状態の確認</h3>
+  <p>ヘッダー右側の接続ステータスで確認できます：</p>
+  <table>
+    <tr><th>表示</th><th>状態</th></tr>
+    <tr><td>☁ Firebase同期中</td><td>正常にクラウド接続されています</td></tr>
+    <tr><td>⚠ 未接続</td><td>クラウドに接続されていません（ローカル保存のみ）</td></tr>
+    <tr><td>読込中…</td><td>データ同期中</td></tr>
+  </table>
+</div>
+
+
+<!-- 9. 日次予定表Excel出力 -->
+<div class="section" id="s9">
+  <h2>9. 日次予定表 Excel出力</h2>
+  <p>指定した日付の工事予定をExcelファイルとして出力します。</p>
+
+  <h3>出力手順</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body">「📅 工程管理」タブの <span class="btn-label">📋 日次予定表 Excel出力</span> ボタンをクリック</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">出力日付と注意書きを入力して <span class="btn-label">Excel出力</span></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Excelファイル（工事予定表_YYYYMMDD.xlsx）がダウンロードされる</div></div>
+  </div>
+
+  <h4>出力設定の入力項目</h4>
+  <table>
+    <tr><th>項目名</th><th>入力形式</th><th>説明</th></tr>
+    <tr><td><span class="field">出力日付</span></td><td>日付選択</td><td>予定表に表示する日付（タイトル行・38行目に反映）</td></tr>
+    <tr><td><span class="field">注意書き</span></td><td>テキスト入力</td><td>タイトル下に表示する注意文（例：入構前に車両始業前点検チェックを徹底）</td></tr>
+  </table>
+
+  <h3>出力フォーマット</h3>
+  <table>
+    <tr><th>エリア</th><th>内容</th></tr>
+    <tr><td>タイトル行</td><td>工事予定表　YYYY年　MM月　DD日　○曜日</td></tr>
+    <tr><td>注意書き行</td><td>入力した注意文</td></tr>
+    <tr><td>データ行（最大16行）</td><td>客先 / プラント / 見積No. / 作業内容 / 担当者 / 作業者（色付き）/ 車両No. / 工程（始・継・完）</td></tr>
+    <tr><td>工場整備欄（固定）</td><td>その日に工事未アサインの作業者を自動表示</td></tr>
+    <tr><td>工事担当者業務欄（固定）</td><td>職分が「担当者」のユーザーを自動表示</td></tr>
+    <tr><td>休み欄（固定）</td><td>休み設定された作業者を自動表示</td></tr>
+    <tr><td>2ページ目</td><td>データが多い場合、続きを自動的に2ページ目に配置</td></tr>
+  </table>
+
+  <div class="tip">💡 客先が異なる工事の間には、自動的に1行の空白行が挿入されます。</div>
+</div>
+
+
+<!-- 10. CSV入出力 -->
+<div class="section" id="s10">
+  <h2>10. データ入出力（CSV）</h2>
+
+  <h3>CSV出力</h3>
+  <p>各タブの <span class="btn-label">↓ CSV出力</span> ボタンで現在のデータをCSVファイルとしてダウンロードできます。</p>
+
+  <h3>CSV取込</h3>
+  <p><span class="btn-label">↑ CSV取込</span> ボタンでCSVファイルを読み込み、データを一括登録できます。</p>
+  <div class="warn">⚠ CSVの列構成は出力形式に合わせてください。</div>
+
+  <h3>工事CSV の列構成</h3>
+  <table>
+    <tr><th>列</th><th>項目名</th><th>対応フィールド</th></tr>
+    <tr><td>A</td><td>客先会社</td><td>client</td></tr>
+    <tr><td>B</td><td>プラント</td><td>plant</td></tr>
+    <tr><td>C</td><td>工事名</td><td>name</td></tr>
+    <tr><td>D</td><td>見積番号</td><td>quoteNo</td></tr>
+    <tr><td>E</td><td>工種</td><td>kouji</td></tr>
+    <tr><td>F</td><td>見積工数</td><td>estimatedHours</td></tr>
+    <tr><td>G</td><td>備考</td><td>remarks</td></tr>
+    <tr><td>H</td><td>登録者</td><td>registeredBy</td></tr>
+  </table>
+
+  <h3>作業者CSV の列構成</h3>
+  <table>
+    <tr><th>列</th><th>項目名</th><th>対応フィールド</th></tr>
+    <tr><td>A</td><td>氏名</td><td>name</td></tr>
+    <tr><td>B</td><td>会社名</td><td>company</td></tr>
+    <tr><td>C</td><td>職分</td><td>role</td></tr>
+    <tr><td>D</td><td>車両番号</td><td>carNo</td></tr>
+  </table>
+</div>
+
+
+<!-- 11. 入力項目一覧・引用元 -->
+<div class="section" id="s11">
+  <h2>11. 入力項目一覧・引用元</h2>
+  <p>各入力項目がツール内のどこで使われるかをまとめます。</p>
+
+  <h3>工事情報（modal-project）→ 引用先</h3>
+  <table>
+    <tr><th>入力項目</th><th>カレンダー列</th><th>日次予定表Excel</th><th>工数管理</th></tr>
+    <tr><td>客先会社</td><td>客先列（固定）</td><td>「現場」欄（A列）</td><td>工事一覧</td></tr>
+    <tr><td>プラント（場所）</td><td>客先列（小文字）</td><td>「(客先)」欄（B列）</td><td>—</td></tr>
+    <tr><td>工事名</td><td>工事名列（固定）</td><td>B行（工事名称欄）</td><td>工事名列</td></tr>
+    <tr><td>工事区分</td><td>工事名の前（括弧表記）</td><td>—</td><td>—</td></tr>
+    <tr><td>見積番号</td><td>工事名の下（小文字）</td><td>「見積No.」欄（I-K列）</td><td>—</td></tr>
+    <tr><td>工種・作業概要</td><td>工種列（固定）</td><td>—</td><td>—</td></tr>
+    <tr><td>見積工数</td><td>見積人工列</td><td>—</td><td>見積工数列</td></tr>
+    <tr><td>登録者</td><td>—</td><td>「担当者」欄（Q列）</td><td>—</td></tr>
+  </table>
+
+  <h3>日程セル情報（modal-cell）→ 引用先</h3>
+  <table>
+    <tr><th>入力項目</th><th>カレンダー表示</th><th>日次予定表Excel</th></tr>
+    <tr><td>状態（確定/未確定）</td><td>セル背景色（黄/黄緑）</td><td>—</td></tr>
+    <tr><td>作業者（複数選択）</td><td>セル内に氏名略称</td><td>作業者欄（S〜AA列、色付き）</td></tr>
+    <tr><td>作業内容</td><td>ホバーツールチップ</td><td>「内容・備考」欄（M列）</td></tr>
+    <tr><td>メモ</td><td>ホバーツールチップ</td><td>「内容・備考」欄（M列）</td></tr>
+    <tr><td>作業区分</td><td>—</td><td>「内容・備考」欄（M列）に ＜火気＞等</td></tr>
+  </table>
+
+  <h3>作業者情報（modal-worker）→ 引用先</h3>
+  <table>
+    <tr><th>入力項目</th><th>引用先</th></tr>
+    <tr><td>氏名</td><td>日程セルの作業者チェックボックス / カレンダーのセル内略称 / 日次予定表Excel作業者欄 / 未割当作業員行</td></tr>
+    <tr><td>会社名</td><td>客先管理のカラー設定と紐付け → Excelで作業者名を会社色で表示</td></tr>
+    <tr><td>職分</td><td>作業者の識別（表示のみ）</td></tr>
+    <tr><td>車両番号</td><td>日次予定表Excelの「車両」欄（AB列）</td></tr>
+  </table>
+
+  <h3>ユーザー情報（modal-sysuser）→ 引用先</h3>
+  <table>
+    <tr><th>入力項目</th><th>引用先</th></tr>
+    <tr><td>氏名</td><td>工事の「登録者」欄に自動セット / ログイン後のヘッダーに表示</td></tr>
+    <tr><td>メールアドレス</td><td>ログイン認証</td></tr>
+    <tr><td>権限（admin/user）</td><td>ユーザー管理タブの表示制御</td></tr>
+    <tr><td>職分（担当者）</td><td>日次予定表Excelの「工事担当者業務」欄（固定行）に自動表示</td></tr>
+  </table>
+</div>
+
+<div style="text-align:center; padding: 30px; color:#888; font-size:12px;">
+  月間工程管理ツール 操作マニュアル
+</div>
+
+</div><!-- /container -->
+</body>
+</html>

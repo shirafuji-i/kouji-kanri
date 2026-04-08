@@ -319,7 +319,11 @@ tr.project-row:hover .row-btns { display: flex; }
 #week-label { font-weight: bold; flex: 1; text-align: center; color: #1e3a5f; }
 
 /* MOBILE VIEW overrides */
-.schedule-wrapper.mobile-view .sl-client { display: none; }
+.schedule-wrapper.mobile-view .sl-client {
+  position: static;  /* sticky解除（固定しない） */
+  min-width: 72px;
+  max-width: 72px;
+}
 .schedule-wrapper.mobile-view .sl-kouji  { display: none; }
 .schedule-wrapper.mobile-view .sl-no     { width: 40px; min-width: 40px; }
 .schedule-wrapper.mobile-view .sl-name   { left: 40px; min-width: 110px; max-width: 130px; }
@@ -1716,7 +1720,7 @@ function buildAvailableRow(allProjects, visibleDays, workers, wMap) {
     cells += `<td class="col-day avail-cell ${baseCls}">${content}</td>`;
   }
 
-  const stickyColspan = viewMode === 'mobile' ? 2 : 4;
+  const stickyColspan = viewMode === 'mobile' ? 3 : 4; // mobile: No.+客先/プラント+工事名
   return `
     <tr class="avail-row no-print">
       <td colspan="${stickyColspan}" class="avail-label sticky-left sl-no" style="left:0;">未割当<br>作業員</td>
@@ -1749,7 +1753,7 @@ function buildRestRow(visibleDays, workers) {
     }
     cells += `<td class="col-day rest-cell ${baseCls}" style="cursor:pointer;" onclick="openRestModal('${ds}')">${content}</td>`;
   }
-  const stickyColspan = viewMode === 'mobile' ? 2 : 4;
+  const stickyColspan = viewMode === 'mobile' ? 3 : 4; // mobile: No.+客先/プラント+工事名
   return `
     <tr class="rest-row">
       <td colspan="${stickyColspan}" class="sticky-left sl-no" style="left:0;background:#fce4ec;font-weight:bold;font-size:11px;color:#880e4f;text-align:center;">休み</td>

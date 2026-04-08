@@ -163,12 +163,16 @@ tr.rest-row td.sticky-left { z-index: 7; }
 .group-header-row td { background: #dde4f0 !important; font-weight: bold; font-size: 12px; padding: 5px 10px; border-top: 2px solid #8a9cc0; text-align: left !important; position: static !important; color: #1e3a5f; }
 tr.teishu-summary-row td { background: #eaf4fb !important; }
 
-/* Drag */
+/* Drag (行並び替え) */
 .drag-handle { display: inline; cursor: grab; font-size: 13px; color: #ccc; padding: 0 2px; }
 .drag-handle:hover { color: #555; }
 .drag-handle:active { cursor: grabbing; }
 tr.project-row.dragging { opacity: 0.35; }
 tr.project-row.drag-over { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Drag (セルコピー) */
+.col-day[draggable] { cursor: grab; }
+.col-day.cell-drag-src  { opacity: 0.4; outline: 2px dashed var(--accent) !important; }
+.col-day.cell-drag-over { outline: 2px solid #e65100 !important; background: #fff3e0 !important; }
 
 /* 行ボタン: 通常は非表示、ホバーで表示 */
 .row-btns { display: none; gap: 2px; justify-content: center; margin-top: 2px; }
@@ -952,6 +956,7 @@ let editingRemarksId    = null;
 let editingSysUserId    = null;
 let cellStatus          = 'none';
 let dragSrcId           = null;
+let cellDragSrc         = null; // セル(日付)ドラッグ元 { projId, ds }
 let copiedCellData      = null; // コピーしたセルデータ
 let editingRestDs       = null; // 休み編集中の日付文字列
 let currentUser         = null;  // { id, name, email, role }
@@ -1852,7 +1857,14 @@ function buildRow(proj, idx, visibleDays, wMap) {
     if (workContent) ttlParts.push(`【作業内容】${workContent}`);
     if (memo)        ttlParts.push(`【メモ】${memo}`);
     const ttl = ttlParts.length ? ` title="${esc(ttlParts.join('\n'))}"` : '';
-    cells += `<td class="col-day ${cls}"${ttl} onclick="openCellModal('${proj.id}','${ds}')">${content}</td>`;
+    cells += `<td class="col-day ${cls}"${ttl}
+      draggable="true"
+      ondragstart="onCellDragStart(event,'${proj.id}','${ds}')"
+      ondragend="onCellDragEnd(event)"
+      ondragover="onCellDragOver(event)"
+      ondragleave="onCellDragLeave(event)"
+      ondrop="onCellDrop(event,'${proj.id}','${ds}')"
+      onclick="openCellModal('${proj.id}','${ds}')">${content}</td>`;
   }
 
   // 工数列
@@ -1968,6 +1980,7 @@ function onDragEnd(e) {
   dragSrcId = null;
 }
 function onDragOver(e, id) {
+  if (cellDragSrc) return; // セルドラッグ中は行ドラッグUI無効
   e.preventDefault();
   if (id===dragSrcId) return;
   document.querySelectorAll('.project-row.drag-over').forEach(r => r.classList.remove('drag-over'));
@@ -1977,6 +1990,7 @@ function onDragOver(e, id) {
 function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 function onDrop(e, targetId) {
   e.preventDefault(); e.stopPropagation();
+  if (cellDragSrc) return; // セルドラッグ中は行ドロップ無効
   if (!dragSrcId || dragSrcId===targetId) return;
   const projects = getProjects();
   const fi = projects.findIndex(p=>p.id===dragSrcId);
@@ -1986,6 +2000,52 @@ function onDrop(e, targetId) {
   projects.splice(ti, 0, item);
   setProjects(projects);
   dragSrcId = null;
+  renderSchedule();
+}
+
+// ── セル（日付）ドラッグ&ドロップ コピー ─────────────────
+function onCellDragStart(e, projId, ds) {
+  cellDragSrc = { projId, ds };
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', `cell:${projId}:${ds}`);
+  e.stopPropagation(); // 行ドラッグと競合しない
+  setTimeout(() => e.target.classList.add('cell-drag-src'), 0);
+}
+function onCellDragEnd(e) {
+  e.target.classList.remove('cell-drag-src');
+  document.querySelectorAll('.col-day.cell-drag-over').forEach(el => el.classList.remove('cell-drag-over'));
+  cellDragSrc = null;
+}
+function onCellDragOver(e) {
+  if (!cellDragSrc) return;
+  e.preventDefault(); e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+  e.currentTarget.classList.add('cell-drag-over');
+}
+function onCellDragLeave(e) {
+  e.currentTarget.classList.remove('cell-drag-over');
+}
+function onCellDrop(e, targetProjId, targetDs) {
+  e.preventDefault(); e.stopPropagation();
+  if (!cellDragSrc) return;
+  const { projId: srcProjId, ds: srcDs } = cellDragSrc;
+  cellDragSrc = null;
+  document.querySelectorAll('.col-day.cell-drag-src, .col-day.cell-drag-over')
+    .forEach(el => el.classList.remove('cell-drag-src', 'cell-drag-over'));
+  // 同一セルへのドロップは無視
+  if (srcProjId === targetProjId && srcDs === targetDs) return;
+  const projects = getProjects();
+  const srcProj  = projects.find(p => p.id === srcProjId);
+  if (!srcProj) return;
+  const srcData = (srcProj.schedule || {})[srcDs];
+  // コピー元が空なら何もしない
+  if (!srcData || (!srcData.workers?.length && !srcData.status && !srcData.workContent && !srcData.note && !srcData.memo)) return;
+  const tgtProj = projects.find(p => p.id === targetProjId);
+  if (!tgtProj) return;
+  if (!tgtProj.schedule) tgtProj.schedule = {};
+  // ディープコピー（コピー元は変更しない）
+  tgtProj.schedule[targetDs] = JSON.parse(JSON.stringify(srcData));
+  setProjects(projects);
   renderSchedule();
 }
 

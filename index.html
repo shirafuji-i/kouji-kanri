@@ -31,7 +31,13 @@ body { font-family: 'Meiryo','Yu Gothic','MS Gothic',sans-serif; font-size: 14px
   color: white; padding: 4px 12px; cursor: pointer; border-radius: 4px; font-size: 14px;
 }
 .month-nav button:hover { background: rgba(255,255,255,0.35); }
-#current-month-label { font-size: 16px; font-weight: bold; min-width: 110px; text-align: center; }
+#month-picker {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4);
+  color: white; padding: 4px 8px; border-radius: 4px;
+  font-size: 15px; font-weight: bold; font-family: inherit;
+  cursor: pointer; min-width: 130px; text-align: center;
+}
+#month-picker::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 .btn-print { background: #e65100; border: none; color: white; padding: 6px 16px; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
 .btn-print:hover { background: #bf360c; }
 .btn-file { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; }
@@ -356,9 +362,10 @@ tr.project-row:hover .row-btns { display: flex; }
     margin-left: 0;
     gap: 5px;
   }
-  #current-month-label {
-    font-size: 13px;
-    min-width: 80px;
+  #month-picker {
+    font-size: 12px;
+    min-width: 100px;
+    padding: 3px 5px;
   }
   .month-nav button {
     padding: 3px 8px;
@@ -423,7 +430,7 @@ tr.project-row:hover .row-btns { display: flex; }
   <span class="app-title">月間工程管理ツール</span>
   <div class="month-nav">
     <button onclick="changeMonth(-1)">◀ 前月</button>
-    <span id="current-month-label"></span>
+    <input type="month" id="month-picker" onchange="onMonthPickerChange()" title="年月を選択">
     <button onclick="changeMonth(1)">次月 ▶</button>
   </div>
   <button class="btn-print" onclick="printSchedule()">🖨️ 印刷 (A4)</button>
@@ -1494,6 +1501,17 @@ function calcActual(proj) {
 // ===========================
 // NAVIGATION
 // ===========================
+function onMonthPickerChange() {
+  const val = document.getElementById('month-picker').value; // "YYYY-MM"
+  if (!val) return;
+  const [y, m] = val.split('-').map(Number);
+  currentYear  = y;
+  currentMonth = m;
+  clientFilter = '';
+  mobileWeekStart = 1;
+  renderAll();
+}
+
 function changeMonth(delta) {
   currentMonth += delta;
   if (currentMonth > 12) { currentMonth = 1; currentYear++; }
@@ -1528,7 +1546,8 @@ function applyClientFilter() {
 // RENDER ALL
 // ===========================
 function renderAll() {
-  document.getElementById('current-month-label').textContent = monthLabel();
+  const _mp = document.getElementById('month-picker');
+  if (_mp) _mp.value = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
   document.getElementById('print-title').textContent = `月間工程表　${monthLabel()}`;
   document.getElementById('hours-title').textContent = `工数管理　${monthLabel()}`;
   updateClientFilterOptions();

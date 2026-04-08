@@ -313,6 +313,87 @@ tr.project-row:hover .row-btns { display: flex; }
 .schedule-wrapper.mobile-view .col-total { width: 34px; font-size: 10px; }
 .schedule-wrapper.mobile-view .col-status { min-width: 58px; font-size: 10px; }
 .schedule-wrapper.mobile-view .col-reset { width: 36px; min-width: 36px; }
+
+/* ========================================
+   スマホ用レスポンシブ (max-width: 768px)
+   ======================================== */
+@media (max-width: 768px) {
+  /* ページ横はみ出し防止 */
+  body { overflow-x: hidden; }
+
+  /* HEADER: 折り返し対応 */
+  .app-header {
+    flex-wrap: wrap;
+    padding: 7px 10px;
+    gap: 5px;
+    row-gap: 6px;
+  }
+  .app-title {
+    font-size: 13px;
+    flex: 1 1 auto;
+  }
+  .month-nav {
+    margin-left: 0;
+    gap: 5px;
+  }
+  #current-month-label {
+    font-size: 13px;
+    min-width: 80px;
+  }
+  .month-nav button {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  /* PC専用ボタンは非表示 */
+  .btn-file { display: none !important; }
+
+  .btn-print {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  .file-status {
+    font-size: 10px;
+    max-width: 110px;
+    padding: 3px 6px;
+  }
+  .btn-cloud {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  .btn-view-mode {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+  .user-badge {
+    font-size: 11px;
+    padding: 3px 8px 3px 6px;
+  }
+  .user-avatar {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  .btn-logout {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  /* タブ */
+  .tabs { padding: 0 8px; }
+  .tab-btn { padding: 8px 12px; font-size: 13px; }
+
+  /* モーダル */
+  .modal { padding: 16px; min-width: unset; width: 95vw; }
+
+  /* ツールバー */
+  .toolbar { gap: 7px; }
+
+  /* カレンダーラッパー: スクロール確保 */
+  .schedule-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 </style>
 </head>
 <body>
@@ -2488,6 +2569,10 @@ function initViewMode() {
   if (!saved) {
     viewMode = window.innerWidth < 768 ? 'mobile' : 'pc';
     localStorage.setItem('view_mode', viewMode);
+  }
+  // 画面が狭い場合は保存設定に関わらずモバイルビューを強制
+  if (window.innerWidth < 600 && viewMode === 'pc') {
+    viewMode = 'mobile';
   }
   // 週表示の初期位置：当月なら今日を含む週、それ以外は月初
   const today = new Date();

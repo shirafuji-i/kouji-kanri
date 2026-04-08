@@ -78,7 +78,10 @@ body { font-family: 'Meiryo','Yu Gothic','MS Gothic',sans-serif; font-size: 14px
 .legend-box { width: 18px; height: 12px; border: 1px solid #999; border-radius: 2px; }
 
 /* SCHEDULE TABLE */
-.schedule-wrapper { overflow-x: auto; }
+.schedule-wrapper {
+  overflow: auto;                    /* 上下左右スクロール */
+  max-height: calc(100vh - 170px);  /* ヘッダー+タブ+ツールバー分を除いた高さ */
+}
 .schedule-table { border-collapse: collapse; font-size: 12px; min-width: 100%; background: white; }
 .schedule-table th, .schedule-table td { border: 1px solid #aaa; padding: 3px 4px; text-align: center; vertical-align: middle; white-space: nowrap; }
 .schedule-table thead th { background: #c8d4ea; font-weight: bold; position: sticky; top: 0; z-index: 10; }
@@ -127,8 +130,22 @@ tr.project-row.proj-completed .confirmed,
 tr.project-row.proj-completed .unconfirmed { background-color: #b8b8b8 !important; }
 tr.project-row.proj-completed .avail-names { color: #888; }
 
-/* 未割当作業員行 */
-tr.avail-row td { border-top: 2px solid #6a8cc0; }
+/* 未割当作業員行・休み行 — 下部固定 */
+tr.avail-row td {
+  border-top: 2px solid #6a8cc0;
+  position: sticky;
+  bottom: 32px; /* rest-row の高さ分 */
+  z-index: 3;
+}
+tr.avail-row td.avail-label { z-index: 7; /* sticky-left との交差 */ }
+
+tr.rest-row td {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+tr.rest-row td.sticky-left { z-index: 7; }
+
 .avail-label {
   background: #dde8f8 !important; font-weight: bold;
   font-size: 11px; color: #1e3a5f; text-align: center !important;
@@ -222,6 +239,8 @@ tr.project-row:hover .row-btns { display: flex; }
   .col-total, .col-est, .col-act, .col-margin { width: 22px; }
   .col-remarks { min-width: 55px; max-width: 70px; }
   .sticky-left { position: static; }
+  tr.avail-row td, tr.rest-row td { position: static; }
+  .schedule-wrapper { max-height: none; overflow: visible; }
   .confirmed   { background-color: var(--confirmed)   !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .unconfirmed { background-color: var(--unconfirmed) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .td-sat { background-color: #e8f0fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -385,10 +404,10 @@ tr.project-row:hover .row-btns { display: flex; }
   /* ツールバー */
   .toolbar { gap: 7px; }
 
-  /* カレンダーラッパー: スクロール確保 */
+  /* カレンダーラッパー: タッチスクロール対応 */
   .schedule-wrapper {
-    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-height: calc(100vh - 130px); /* スマホはヘッダーが小さい */
   }
 }
 </style>

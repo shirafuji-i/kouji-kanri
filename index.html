@@ -305,10 +305,7 @@ tr.project-row:hover .row-btns { display: flex; }
 .schedule-wrapper.mobile-view .sl-no     { width: 40px; min-width: 40px; }
 .schedule-wrapper.mobile-view .sl-name   { left: 40px; min-width: 110px; max-width: 130px; }
 .schedule-wrapper.mobile-view .avail-label { width: 150px; }
-.schedule-wrapper.mobile-view .col-est,
-.schedule-wrapper.mobile-view .col-act,
-.schedule-wrapper.mobile-view .col-margin,
-.schedule-wrapper.mobile-view .col-remarks { display: none; }
+/* 備考・工数・粗利率はスマホでも表示（横スクロールで閲覧） */
 .schedule-wrapper.mobile-view .col-day { width: 22px; min-width: 22px; font-size: 10px; }
 .schedule-wrapper.mobile-view .col-total { width: 34px; font-size: 10px; }
 .schedule-wrapper.mobile-view .col-status { min-width: 58px; font-size: 10px; }
@@ -1541,17 +1538,9 @@ function renderSchedule() {
   const days = daysInMonth(currentYear, currentMonth);
   const DOW  = ['日','月','火','水','木','金','土'];
 
-  // 表示する日の配列を決定（モバイルは週表示、PCは全日表示）
-  let visibleDays;
-  if (viewMode === 'mobile') {
-    const start = Math.max(1, Math.min(mobileWeekStart, days));
-    const end   = Math.min(start + 6, days);
-    visibleDays = [];
-    for (let d = start; d <= end; d++) visibleDays.push(d);
-  } else {
-    visibleDays = [];
-    for (let d = 1; d <= days; d++) visibleDays.push(d);
-  }
+  // 表示する日の配列（モバイル・PC共に全日表示、横スクロールで閲覧）
+  const visibleDays = [];
+  for (let d = 1; d <= days; d++) visibleDays.push(d);
 
   // スケジュールラッパーにmobile-viewクラスを付与/解除
   const wrapper = document.querySelector('.schedule-wrapper');
@@ -2611,15 +2600,14 @@ function changeWeek(delta) {
 function updateViewModeUI() {
   const btn = document.getElementById('btn-view-mode');
   if (!btn) return;
+  // 週ナビは全日横スクロール方式に変更したため常に非表示
+  document.getElementById('mobile-week-nav').classList.remove('show');
   if (viewMode === 'mobile') {
     btn.textContent = '🖥 PC表示';
     btn.classList.add('mobile-active');
-    document.getElementById('mobile-week-nav').classList.add('show');
-    updateWeekNav();
   } else {
     btn.textContent = '📱 スマホ';
     btn.classList.remove('mobile-active');
-    document.getElementById('mobile-week-nav').classList.remove('show');
   }
 }
 

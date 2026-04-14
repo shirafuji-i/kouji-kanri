@@ -782,6 +782,17 @@ tr.project-row:hover .row-btns { display: flex; }
         <option value="入槽">＜入槽＞</option>
       </select>
     </div>
+    <div class="form-group">
+      <label>重機・ユニック</label>
+      <div style="display:flex;gap:20px;padding:4px 0;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="inp-cell-unic" style="width:15px;height:15px;"> ユニック
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="inp-cell-juuki" style="width:15px;height:15px;"> 重機
+        </label>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
       <button id="btn-copy-cell" class="btn btn-secondary" style="flex:1;font-size:12px;" onclick="copyCellData()">📋 コピー</button>
       <button id="btn-paste-cell" class="btn btn-secondary" style="flex:1;font-size:12px;" onclick="pasteCellData()">📋 貼り付け</button>
@@ -1866,7 +1877,14 @@ function buildRow(proj, idx, visibleDays, wMap) {
       const names = ent.workers
         .map(wid => wMap[wid] ? wMap[wid].name.replace(/[\s　]+/g,'')[0] : '?')
         .join('・');
-      content = `<div class="day-cell-content"><span class="cell-workers">${esc(names)}</span></div>`;
+      const eq = ent.equipment || [];
+      const eqHtml = eq.length
+        ? `<div style="color:#c62828;font-size:9px;font-weight:bold;line-height:1.2;">${esc(eq.join('・'))}</div>`
+        : '';
+      content = `<div class="day-cell-content"><span class="cell-workers">${esc(names)}</span>${eqHtml}</div>`;
+    } else if (ent && (ent.equipment||[]).length) {
+      const eq = ent.equipment;
+      content = `<div class="day-cell-content"><div style="color:#c62828;font-size:9px;font-weight:bold;line-height:1.2;">${esc(eq.join('・'))}</div></div>`;
     }
 
     // ホバーtitle: 作業内容 + メモ（後方互換: 旧noteも考慮）
@@ -2199,9 +2217,12 @@ function openCellModal(projectId, ds) {
         </label>`
       ).join('');
   // 後方互換: 旧 note → workContent へフォールバック
-  document.getElementById('inp-cell-work').value   = ent.workContent || ent.note || '';
-  document.getElementById('inp-cell-memo').value   = ent.memo || '';
-  document.getElementById('inp-cell-permit').value = ent.permitType || '';
+  document.getElementById('inp-cell-work').value    = ent.workContent || ent.note || '';
+  document.getElementById('inp-cell-memo').value    = ent.memo || '';
+  document.getElementById('inp-cell-permit').value  = ent.permitType || '';
+  const eq = ent.equipment || [];
+  document.getElementById('inp-cell-unic').checked  = eq.includes('ユニック');
+  document.getElementById('inp-cell-juuki').checked = eq.includes('重機');
   // コピー/貼り付けボタン状態
   document.getElementById('btn-copy-cell').textContent  = '📋 コピー';
   const pasteBtn = document.getElementById('btn-paste-cell');
@@ -2218,12 +2239,16 @@ function openCellModal(projectId, ds) {
 }
 
 function copyCellData() {
+  const eqCopy = [];
+  if (document.getElementById('inp-cell-unic').checked)  eqCopy.push('ユニック');
+  if (document.getElementById('inp-cell-juuki').checked) eqCopy.push('重機');
   copiedCellData = {
     status:      cellStatus,
     workers:     Array.from(document.querySelectorAll('#modal-worker-grid input[type=checkbox]:checked')).map(cb=>cb.value),
     workContent: document.getElementById('inp-cell-work').value,
     memo:        document.getElementById('inp-cell-memo').value,
     permitType:  document.getElementById('inp-cell-permit').value,
+    equipment:   eqCopy,
   };
   const btn = document.getElementById('btn-copy-cell');
   btn.textContent = '✅ コピー済み！';
@@ -2243,9 +2268,12 @@ function pasteCellData() {
   document.querySelectorAll('#modal-worker-grid input[type=checkbox]').forEach(cb => {
     cb.checked = checks.includes(cb.value);
   });
-  document.getElementById('inp-cell-work').value   = copiedCellData.workContent || '';
-  document.getElementById('inp-cell-memo').value   = copiedCellData.memo || '';
-  document.getElementById('inp-cell-permit').value = copiedCellData.permitType || '';
+  document.getElementById('inp-cell-work').value    = copiedCellData.workContent || '';
+  document.getElementById('inp-cell-memo').value    = copiedCellData.memo || '';
+  document.getElementById('inp-cell-permit').value  = copiedCellData.permitType || '';
+  const eqPaste = copiedCellData.equipment || [];
+  document.getElementById('inp-cell-unic').checked  = eqPaste.includes('ユニック');
+  document.getElementById('inp-cell-juuki').checked = eqPaste.includes('重機');
   const btn = document.getElementById('btn-paste-cell');
   btn.textContent = '✅ 貼り付け完了！';
   setTimeout(() => { btn.textContent = '📋 貼り付け'; }, 1800);
@@ -2272,11 +2300,14 @@ function saveCell() {
   const workContent = document.getElementById('inp-cell-work').value.trim();
   const memo        = document.getElementById('inp-cell-memo').value.trim();
   const permitType  = document.getElementById('inp-cell-permit').value;
+  const equipment   = [];
+  if (document.getElementById('inp-cell-unic').checked)  equipment.push('ユニック');
+  if (document.getElementById('inp-cell-juuki').checked) equipment.push('重機');
 
-  if (cellStatus==='none' && !selWorkers.length && !workContent && !memo && !permitType) {
+  if (cellStatus==='none' && !selWorkers.length && !workContent && !memo && !permitType && !equipment.length) {
     delete proj.schedule[ds];
   } else {
-    proj.schedule[ds] = {status:cellStatus, workers:selWorkers, workContent, memo, permitType};
+    proj.schedule[ds] = {status:cellStatus, workers:selWorkers, workContent, memo, permitType, equipment};
   }
   setProjects(projects);
   closeModal('modal-cell');

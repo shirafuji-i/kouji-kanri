@@ -3065,7 +3065,8 @@ async function generateDailyReport(dateStr, notice) {
       if (equipment.length > 0) {
         const richParts = [];
         if (vNos) richParts.push({ text: vNos + '\n', font: { name:'HGPゴシックE', family:4, size:9 } });
-        richParts.push({ text: '【' + equipment.join('・') + '】', font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } } });
+        const eqLabel = equipment.map(e => e === 'ユニック' ? 'ﾕﾆｯｸ' : e).join('・');
+        richParts.push({ text: eqLabel, font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } } });
         ws.getCell(`AB${ra}`).value = { richText: richParts };
       } else {
         ws.getCell(`AB${ra}`).value = vNos;

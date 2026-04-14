@@ -2985,8 +2985,8 @@ async function generateDailyReport(dateStr, notice) {
 
   // P1データ行クリア
   P1_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
-  // P1余剰データ行(21〜32)を非表示（スロット9-14は使用しない）
-  for (let r = 21; r <= 32; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
+  // P1余剰データ行(21〜32)を常時表示（行数固定）
+  for (let r = 21; r <= 32; r++) { try { ws.getRow(r).hidden = false; } catch(e){} }
 
   // P1固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {
@@ -3004,8 +3004,8 @@ async function generateDailyReport(dateStr, notice) {
 
   // P2データ行クリア
   P2_DATA.forEach(([ra, rb]) => clearDataRow(ra, rb));
-  // P2余剰データ行(59〜70)を非表示（スロット9-14は使用しない）
-  for (let r = 59; r <= 70; r++) { try { ws.getRow(r).hidden = true; } catch(e){} }
+  // P2余剰データ行(59〜70)を常時表示（行数固定）
+  for (let r = 59; r <= 70; r++) { try { ws.getRow(r).hidden = false; } catch(e){} }
 
   // P2固定行: 作業員列クリア（ラベルはテンプレート保持）
   WORKER_COLS.forEach(col => {

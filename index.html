@@ -2974,7 +2974,7 @@ async function generateDailyReport(dateStr, notice) {
   const P2_YASUMI = 75;
 
   const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
-  const DATA_COLS   = ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AD'];
+  const DATA_COLS   = ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'];
 
   // ── データ行クリア関数 ──
   function clearDataRow(ra, rb) {
@@ -3061,15 +3061,16 @@ async function generateDailyReport(dateStr, notice) {
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
       ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
-      ws.getCell(`AB${ra}`).value = vNos;
-      ws.getCell(`AC${ra}`).value = phase;
-      // AD列: ユニック/重機（赤字・太字）
+      // AB列: 車両No. + ユニック/重機（赤字・太字）を最下部に
       if (equipment.length > 0) {
-        ws.getCell(`AD${ra}`).value = { richText: [{
-          text: '【' + equipment.join('・') + '】',
-          font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } }
-        }]};
+        const richParts = [];
+        if (vNos) richParts.push({ text: vNos + '\n', font: { name:'HGPゴシックE', family:4, size:9 } });
+        richParts.push({ text: '【' + equipment.join('・') + '】', font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } } });
+        ws.getCell(`AB${ra}`).value = { richText: richParts };
+      } else {
+        ws.getCell(`AB${ra}`).value = vNos;
       }
+      ws.getCell(`AC${ra}`).value = phase;
       // rb行に工事名
       ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
     } catch(e){}

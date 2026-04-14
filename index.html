@@ -3046,7 +3046,7 @@ async function generateDailyReport(dateStr, notice) {
     const memo       = (ent&&ent.memo) || '';
     const permitType = (ent&&ent.permitType) || '';
     const equipment  = (ent&&ent.equipment) || [];
-    const topParts   = [workC, memo, proj.kouji?`＜${proj.kouji}＞`:''].filter(Boolean).join('\n');
+    const topParts   = [workC, memo].filter(Boolean).join('\n');
     const content    = permitType ? topParts + '\n\n＜' + permitType + '＞' : topParts;
     const vNos       = [...new Set(entW.map(wid=>wMap[wid]?.carNo).filter(Boolean))].join('\n');
     let phase = '継';

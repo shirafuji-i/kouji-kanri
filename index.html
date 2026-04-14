@@ -2974,7 +2974,7 @@ async function generateDailyReport(dateStr, notice) {
   const P2_YASUMI = 75;
 
   const WORKER_COLS = ['S','T','U','V','W','X','Y','Z','AA'];
-  const DATA_COLS   = ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB'];
+  const DATA_COLS   = ['A','B','I','M','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AD'];
 
   // ── データ行クリア関数 ──
   function clearDataRow(ra, rb) {
@@ -3016,7 +3016,7 @@ async function generateDailyReport(dateStr, notice) {
   try { ws.getCell(`B${P2_YASUMI}`).value = null; } catch(e){}
 
   // 印刷範囲
-  try { ws.pageSetup.printArea = 'A1:AC76'; } catch(e){}
+  try { ws.pageSetup.printArea = 'A1:AD76'; } catch(e){}
 
   // ── ヘルパー関数 ─────────────────────────────
   function writeWorkers(ra, workerObjs) {
@@ -3059,18 +3059,17 @@ async function generateDailyReport(dateStr, notice) {
       ws.getCell(`A${ra}`).value  = (proj.client||'').slice(0,6);
       ws.getCell(`B${ra}`).value  = proj.plant ? `(${proj.plant})` : '';
       ws.getCell(`I${ra}`).value  = proj.quoteNo || '';
-      // M列: 作業内容 + ユニック/重機（赤字）
-      if (equipment.length > 0) {
-        const richParts = [];
-        if (content) richParts.push({ text: content + '\n', font: { name:'HGPゴシックE', family:4, size:9 } });
-        richParts.push({ text: '【' + equipment.join('・') + '】', font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } } });
-        ws.getCell(`M${ra}`).value = { richText: richParts };
-      } else {
-        ws.getCell(`M${ra}`).value = content;
-      }
+      ws.getCell(`M${ra}`).value  = content;
       ws.getCell(`Q${ra}`).value  = proj.registeredBy || '';
       ws.getCell(`AB${ra}`).value = vNos;
       ws.getCell(`AC${ra}`).value = phase;
+      // AD列: ユニック/重機（赤字・太字）
+      if (equipment.length > 0) {
+        ws.getCell(`AD${ra}`).value = { richText: [{
+          text: '【' + equipment.join('・') + '】',
+          font: { name:'HGPゴシックE', family:4, size:9, bold:true, color:{ argb:'FFCC0000' } }
+        }]};
+      }
       // rb行に工事名
       ws.getCell(`B${rb}`).value  = (proj.projType ? `(${proj.projType}) ` : '') + (proj.name || '');
     } catch(e){}

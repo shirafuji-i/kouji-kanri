@@ -238,19 +238,23 @@ tr.project-row:hover .row-btns { display: flex; }
   #tab-workers, #tab-hours { display: none !important; }
   #tab-schedule { display: block !important; padding: 0; }
   .print-header { display: block !important; }
-  .schedule-wrapper { overflow: visible; }
-  .schedule-table { font-size: 7pt; width: 100%; }
-  .schedule-table th, .schedule-table td { padding: 1px 1px; }
+  /* スクロール・高さ制限を解除 */
+  .schedule-wrapper { overflow: visible !important; max-height: none !important; height: auto !important; }
+  /* sticky を全て static に戻してレイアウトずれを防止 */
+  .schedule-table thead th { position: static !important; top: auto !important; z-index: auto !important; }
+  .sticky-left { position: static !important; left: auto !important; z-index: auto !important; }
+  tr.avail-row td, tr.rest-row td { position: static !important; bottom: auto !important; z-index: auto !important; }
+  /* テーブル列幅 */
+  .schedule-table { font-size: 7pt; width: 100%; border-collapse: collapse; }
+  .schedule-table th, .schedule-table td { padding: 1px 2px; white-space: nowrap; }
   .sl-no     { width: 26px; min-width: 26px; }
   .sl-client { min-width: 48px; max-width: 56px; }
   .sl-name   { min-width: 58px; max-width: 72px; }
   .sl-kouji  { min-width: 38px; max-width: 48px; }
-  .col-day   { width: 22px; min-width: 22px; }
-  .col-total, .col-est, .col-act, .col-margin { width: 22px; }
+  .col-day   { width: 22px; min-width: 22px; max-width: 22px; }
+  .col-total, .col-est, .col-act, .col-margin { width: 24px; min-width: 24px; }
   .col-remarks { min-width: 55px; max-width: 70px; }
-  .sticky-left { position: static; }
-  tr.avail-row td, tr.rest-row td { position: static; }
-  .schedule-wrapper { max-height: none; overflow: visible; }
+  /* セル色 */
   .confirmed   { background-color: var(--confirmed)   !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .unconfirmed { background-color: var(--unconfirmed) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .td-sat { background-color: #e8f0fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

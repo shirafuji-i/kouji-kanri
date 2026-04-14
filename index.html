@@ -3016,7 +3016,7 @@ async function generateDailyReport(dateStr, notice) {
   try { ws.getCell(`B${P2_YASUMI}`).value = null; } catch(e){}
 
   // 印刷範囲
-  try { ws.pageSetup.printArea = 'A1:AD76'; } catch(e){}
+  try { ws.pageSetup.printArea = 'A1:AC76'; } catch(e){}
 
   // ── ヘルパー関数 ─────────────────────────────
   function writeWorkers(ra, workerObjs) {

@@ -1643,9 +1643,25 @@ function renderSchedule() {
   }
 
   let rows = '';
+  // プラント別にサブグループ化し、各プラントの最終行直後にサマリ行を挿入するヘルパー
+  function renderByPlant(items, getIdx) {
+    let html = '';
+    const plantMap = {}, plantOrder = [];
+    items.forEach(p => {
+      const k = p.plant || '';
+      if (!plantMap[k]) { plantMap[k] = []; plantOrder.push(k); }
+      plantMap[k].push(p);
+    });
+    plantOrder.forEach(plant => {
+      plantMap[plant].forEach(proj => { html += buildRow(proj, getIdx(), visibleDays, wMap); });
+      html += buildTeishuSummaryRows(plantMap[plant], visibleDays);
+    });
+    return html;
+  }
+
   if (clientFilter) {
-    projects.forEach((proj, idx) => { rows += buildRow(proj, idx, visibleDays, wMap); });
-    rows += buildTeishuSummaryRows(projects, visibleDays);
+    let idx = 0;
+    rows += renderByPlant(projects, () => idx++);
   } else {
     // Stable grouping by client
     const seen = {}, groups = [];
@@ -1659,8 +1675,7 @@ function renderSchedule() {
       rows += `<tr class="group-header-row${gidx===0?' first-group':''}">
         <td colspan="${COLS}">🏢 ${esc(g.client)}</td>
       </tr>`;
-      g.items.forEach(proj => { rows += buildRow(proj, gi++, visibleDays, wMap); });
-      rows += buildTeishuSummaryRows(g.items, visibleDays);
+      rows += renderByPlant(g.items, () => gi++);
     });
   }
   rows += buildAvailableRow(allProjects, visibleDays, workers, wMap);
@@ -1697,7 +1712,7 @@ function buildTeishuSummaryRows(groupProjects, visibleDays) {
     const emptyCells = Array(visibleDays.length).fill('<td class="col-day" style="background:#eaf4fb;"></td>').join('');
 
     html += `
-    <tr class="teishu-summary-row">
+    <tr class="teishu-summary-row no-print">
       <td colspan="4" class="sticky-left" style="left:0;background:#eaf4fb;border-top:2px solid #90caf9;font-size:12px;font-weight:bold;color:#1565c0;padding:4px 10px;">
         📊 定修合計：${esc(plant)}（${projs.length}件）
       </td>

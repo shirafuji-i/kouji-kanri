@@ -40,6 +40,8 @@ body { font-family: 'Meiryo','Yu Gothic','MS Gothic',sans-serif; font-size: 14px
 #month-picker::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 .btn-print { background: #e65100; border: none; color: white; padding: 6px 16px; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
 .btn-print:hover { background: #bf360c; }
+.btn-manual { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: bold; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.btn-manual:hover { background: rgba(255,255,255,0.35); }
 .btn-file { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; }
 .btn-file:hover { background: rgba(255,255,255,0.35); }
 .btn-cloud { background: rgba(37,99,235,0.5); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
@@ -386,6 +388,10 @@ tr.project-row:hover .row-btns { display: flex; }
     padding: 4px 8px;
     font-size: 11px;
   }
+  .btn-manual {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
   .file-status {
     font-size: 10px;
     max-width: 110px;
@@ -442,6 +448,7 @@ tr.project-row:hover .row-btns { display: flex; }
     <button onclick="changeMonth(1)">次月 ▶</button>
   </div>
   <button class="btn-print" onclick="printSchedule()">🖨️ 印刷 (A4)</button>
+  <a href="manual.html" target="_blank" class="btn-manual" title="操作マニュアルを開く">📖 マニュアル</a>
   <div id="file-status" class="file-status disconnected" title="未接続">⚠ 未接続</div>
   <button class="btn-cloud" onclick="openCloudSettings()" title="クラウド同期設定（PC・携帯共有）">☁ クラウド設定</button>
   <button class="btn-file" onclick="openDataFile()" title="ローカルJSONファイルを開く（PC専用）">📂 PC用</button>
